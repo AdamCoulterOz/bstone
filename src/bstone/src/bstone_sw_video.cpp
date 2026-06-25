@@ -69,6 +69,7 @@ public:
 		const bstone::Rgba8* src, int width, int height, int fade_ticks) override;
 	void fade_out_fullscreen(int fade_ticks) override;
 	void set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height) override;
+	void set_linc_true_palette(const std::uint8_t* vga_palette) override;
 
 	// HW
 	//
@@ -172,7 +173,10 @@ private:
 	// tvOS LINC bezel: a full-screen RGBA background image + the screen-cutout
 	// rectangle the UI (menu / high-scores / credits) is letterboxed into.
 	std::array<sys::TextureUPtr, vid_linc_layer_count> linc_layers_{}; // tvOS: bezel skins + lights
+	sys::TextureUPtr ui_2nd_texture_{}; // tvOS: the second-screen image
+	SdlPalette linc_true_palette_{};    // tvOS: original (non-rust) palette for the 2nd screen
 	sys::Rectangle ui_linc_dst_rect_{};
+	sys::Rectangle ui_linc_2nd_dst_rect_{};
 	int linc_blink_{}; // tvOS: context-light pulse counter
 
 
@@ -364,7 +368,7 @@ try {
 	//
 	if (vid_tvos_linc)
 	{
-		auto& bezel = linc_layers_[vid_linc_briefing ? vid_linc_open : vid_linc_closed];
+		auto& bezel = linc_layers_[vid_linc_second_active ? vid_linc_open : vid_linc_closed];
 
 		if (bezel != nullptr)
 		{
@@ -421,6 +425,46 @@ try {
 	if (vid_is_hud || vid_tvos_linc)
 	{
 		enable_texture_blending(*ui_texture_, false);
+	}
+
+	// tvOS: the second-screen image (the new-mission flow redirects its episode /
+	// difficulty / target-base graphic into vid_linc_2nd_buffer_), drawn into the
+	// bezel's revealed second screen.
+	if (vid_tvos_linc && vid_linc_second_active && vid_linc_2nd_w > 0 && vid_linc_2nd_h > 0)
+	{
+		if (ui_2nd_texture_ == nullptr)
+		{
+			auto p = sys::TextureInitParam{};
+			p.pixel_format = sys::PixelFormat::b8g8r8a8;
+			p.access = sys::TextureAccess::streaming;
+			p.width = vga_ref_width;
+			p.height = vga_ref_height;
+			ui_2nd_texture_ = renderer_->make_texture(p);
+		}
+
+		{
+			const auto lock = ui_2nd_texture_->make_lock();
+			const auto dst = lock->get_pixels<std::uint32_t*>();
+			const auto pitch = lock->get_pitch() / 4;
+
+			// True (non-rust) palette so the images keep their own colours; only
+			// the image's bounds need converting.
+			for (auto y = 0; y < vid_linc_2nd_h; ++y)
+			{
+				auto line = &dst[y * pitch];
+				const auto src = y * vga_ref_width;
+
+				for (auto x = 0; x < vid_linc_2nd_w; ++x)
+				{
+					line[x] = linc_true_palette_[vid_linc_2nd_buffer_[src + x]] | 0xFF000000U;
+				}
+			}
+		}
+
+		// Blow the image's bounds up to fill the whole second screen.
+		const auto src_rect = sys::Rectangle{0, 0, vid_linc_2nd_w, vid_linc_2nd_h};
+		ui_2nd_texture_->set_blend_mode(sys::TextureBlendMode::none);
+		copy_texture_to_rendering_target(*ui_2nd_texture_, &src_rect, &ui_linc_2nd_dst_rect_);
 	}
 
 	// tvOS: a context light glows over the bezel — red (pulsing alert) during a
@@ -680,6 +724,27 @@ try {
 	}
 
 	screenfaded = false;
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+void SwVideo::set_linc_true_palette(const std::uint8_t* vga_palette)
+try {
+	if (vga_palette == nullptr)
+	{
+		return;
+	}
+
+	for (auto i = 0; i < 256; ++i)
+	{
+		const auto r = (255 * vga_palette[(i * 3) + 0]) / 63;
+		const auto g = (255 * vga_palette[(i * 3) + 1]) / 63;
+		const auto b = (255 * vga_palette[(i * 3) + 2]) / 63;
+
+		linc_true_palette_[i] =
+			0xFF000000U |
+			(static_cast<std::uint32_t>(r) << 16) |
+			(static_cast<std::uint32_t>(g) << 8) |
+			static_cast<std::uint32_t>(b);
+	}
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height)
@@ -1070,6 +1135,15 @@ void SwVideo::calculate_dimensions()
 			static_cast<int>(0.1318 * win_h), // y=124 of 941
 			static_cast<int>(0.4779 * win_w), // w=799
 			static_cast<int>(0.6833 * win_h), // h=643
+		};
+
+		// Second screen (revealed by the open panel): x1094 y161 w424 h296.
+		ui_linc_2nd_dst_rect_ = sys::Rectangle
+		{
+			static_cast<int>(0.6543 * win_w),
+			static_cast<int>(0.1711 * win_h),
+			static_cast<int>(0.2536 * win_w),
+			static_cast<int>(0.3146 * win_h),
 		};
 	}
 

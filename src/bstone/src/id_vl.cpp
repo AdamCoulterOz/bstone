@@ -636,6 +636,18 @@ Notes:
 VgaBuffer vid_ui_buffer_;
 UiMaskBuffer vid_mask_buffer_;
 
+// tvOS LINC second screen: a parallel UI buffer that the new-mission-flow image
+// draws are redirected into, so they render on the bezel's second screen (off the
+// main screen) and animations play frame-by-frame. vid_ui_target_/vid_mask_target_
+// are the live draw targets (default = the main buffers).
+VgaBuffer vid_linc_2nd_buffer_;
+UiMaskBuffer vid_linc_2nd_mask_;
+VgaBuffer* vid_ui_target_ = &vid_ui_buffer_;
+UiMaskBuffer* vid_mask_target_ = &vid_mask_buffer_;
+bool vid_linc_second_active = false; // a second-screen image is showing
+int vid_linc_2nd_w = 0; // the redirected image's size within the 2nd buffer
+int vid_linc_2nd_h = 0;
+
 VidLayout vid_layout_;
 
 
@@ -1206,6 +1218,7 @@ try {
 	const auto area = vga_ref_width * vga_ref_height;
 
 	vid_ui_buffer_.resize(area);
+	vid_linc_2nd_buffer_.resize(area);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 
@@ -1510,6 +1523,11 @@ try {
 	g_video->set_linc_layer(layer, src, width, height);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
+void VL_SetLincTruePalette(const std::uint8_t* vga_palette)
+try {
+	g_video->set_linc_true_palette(vga_palette);
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
 void VL_FadeOutFullscreen(int fade_ticks)
 try {
 	g_video->fade_out_fullscreen(fade_ticks);
@@ -1556,8 +1574,8 @@ void VL_Plot(
 {
 	const auto offset = (y * vga_ref_width) + x;
 
-	vid_ui_buffer_[offset] = color;
-	vid_mask_buffer_[offset] = !is_transparent;
+	(*vid_ui_target_)[offset] = color;
+	(*vid_mask_target_)[offset] = !is_transparent;
 }
 
 void VL_Hlin(
@@ -1586,20 +1604,16 @@ void VL_Bar(
 	std::uint8_t color,
 	bool is_transparent)
 {
+	auto& ui = *vid_ui_target_;
+	auto& mask = *vid_mask_target_;
+
 	if (x == 0 && width == vga_ref_width)
 	{
 		const auto offset = y * vga_ref_width;
 		const auto count = height * vga_ref_width;
 
-		std::fill(
-			vid_ui_buffer_.begin() + offset,
-			vid_ui_buffer_.begin() + offset + count,
-			color);
-
-		std::fill(
-			vid_mask_buffer_.begin() + offset,
-			vid_mask_buffer_.begin() + offset + count,
-			!is_transparent);
+		std::fill(ui.begin() + offset, ui.begin() + offset + count, color);
+		std::fill(mask.begin() + offset, mask.begin() + offset + count, !is_transparent);
 	}
 	else
 	{
@@ -1607,17 +1621,26 @@ void VL_Bar(
 		{
 			const auto offset = ((y + i) * vga_ref_width) + x;
 
-			std::fill(
-				vid_ui_buffer_.begin() + offset,
-				vid_ui_buffer_.begin() + offset + width,
-				color);
-
-			std::fill(
-				vid_mask_buffer_.begin() + offset,
-				vid_mask_buffer_.begin() + offset + width,
-				!is_transparent);
+			std::fill(ui.begin() + offset, ui.begin() + offset + width, color);
+			std::fill(mask.begin() + offset, mask.begin() + offset + width, !is_transparent);
 		}
 	}
+}
+
+// tvOS LINC: redirect subsequent UI draws into the second-screen buffer (cleared
+// first) so an image/animation renders on the bezel's second screen; pair with
+// vid_linc_2nd_end().
+void vid_linc_2nd_begin()
+{
+	std::fill(vid_linc_2nd_buffer_.begin(), vid_linc_2nd_buffer_.end(), std::uint8_t{0});
+	vid_ui_target_ = &vid_linc_2nd_buffer_;
+	vid_mask_target_ = &vid_linc_2nd_mask_;
+}
+
+void vid_linc_2nd_end()
+{
+	vid_ui_target_ = &vid_ui_buffer_;
+	vid_mask_target_ = &vid_mask_buffer_;
 }
 
 /*

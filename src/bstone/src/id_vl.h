@@ -206,6 +206,16 @@ extern bool vid_linc_briefing;
 // pick the amber context light instead of green.
 extern bool vid_linc_ingame;
 
+// tvOS LINC second screen (new-mission flow). vid_linc_2nd_buffer_ is the
+// redirected image buffer; vid_linc_second_active drives the open panel + the
+// second-screen render; vid_linc_2nd_begin/end route draws into the buffer.
+extern VgaBuffer vid_linc_2nd_buffer_;
+extern bool vid_linc_second_active;
+extern int vid_linc_2nd_w;
+extern int vid_linc_2nd_h;
+void vid_linc_2nd_begin();
+void vid_linc_2nd_end();
+
 extern bstone::SpriteCache vid_sprite_cache;
 
 extern double height_compensation_factor;
@@ -277,6 +287,7 @@ enum
 };
 
 void VL_SetLincLayer(int layer, const bstone::Rgba8* src, int width, int height);
+void VL_SetLincTruePalette(const std::uint8_t* vga_palette);
 
 // tvOS: begin/end the front-end LINC bezel treatment around a menu / high-scores
 // / credits screen. Begin loads the bezel + rust palette and sets vid_tvos_linc;

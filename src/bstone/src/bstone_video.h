@@ -109,6 +109,13 @@ public:
 		static_cast<void>(height);
 	}
 
+	// tvOS: the original (non-rust) VGA palette, for the second-screen images'
+	// true colours. No-op default.
+	virtual void set_linc_true_palette(const std::uint8_t* vga_palette)
+	{
+		static_cast<void>(vga_palette);
+	}
+
 	virtual void apply_widescreen() = 0;
 
 	virtual void apply_window_mode() = 0;

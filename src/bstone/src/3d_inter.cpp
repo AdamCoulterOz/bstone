@@ -43,7 +43,15 @@ bool Breifing(
 	breifing_type BreifingType,
 	std::uint16_t episode)
 {
+	// Preserve the caller's second-screen state: the new-mission flow keeps its open
+	// panel across a briefing + ESC back to the difficulty / mission menus.
+	const bool prev_second_active = vid_linc_second_active;
 	vid_linc_briefing = true; // tvOS: blink the bezel light (no-op on other platforms)
+	vid_linc_second_active = true; // tvOS: open panel + second screen
+	vid_linc_2nd_begin(); // blank the second screen (the target base is routed in below)
+	vid_linc_2nd_end();
+	vid_linc_2nd_w = 0; // no image yet: keep the render gate closed so the open panel's
+	vid_linc_2nd_h = 0; // own (black) second screen shows until the target base draws
 
 	HelpPresenter(
 		nullptr,
@@ -52,6 +60,7 @@ bool Breifing(
 		false);
 
 	vid_linc_briefing = false;
+	vid_linc_second_active = prev_second_active;
 
 	return EscPressed;
 }

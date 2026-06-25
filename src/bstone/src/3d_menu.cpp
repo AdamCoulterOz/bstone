@@ -2223,6 +2223,16 @@ void CP_NewGame(
 {
 	std::int16_t which, episode = 0;
 
+#if BSTONE_TVOS
+	// tvOS: CHOOSE A MISSION + DIFFICULTY show their image on the bezel's second
+	// screen (open panel); blank it to start.
+	const auto second_guard = bstone::make_scope_exit([]()
+		{ vid_linc_second_active = false; vid_linc_2nd_w = 0; vid_linc_2nd_h = 0; });
+	vid_linc_second_active = true;
+	vid_linc_2nd_begin();
+	vid_linc_2nd_end();
+#endif
+
 	DrawMenuTitle("Difficulty Level");
 	DrawInstructions(IT_STANDARD);
 
@@ -2446,12 +2456,36 @@ void DrawNewGame()
 void DrawNewGameDiff(
 	std::int16_t w)
 {
+#if BSTONE_TVOS
+	if (vid_tvos_linc)
+	{
+		const auto chunk = w + C_BABYMODEPIC;
+		vid_linc_2nd_w = pictable[chunk - STARTPICS].width;
+		vid_linc_2nd_h = pictable[chunk - STARTPICS].height;
+		vid_linc_2nd_begin();
+		VWB_DrawPic(0, 0, chunk);
+		vid_linc_2nd_end();
+		return;
+	}
+#endif
 	VWB_DrawPic(192, 77, w + C_BABYMODEPIC);
 }
 
 void DrawEpisodePic(
 	std::int16_t w)
 {
+#if BSTONE_TVOS
+	if (vid_tvos_linc)
+	{
+		const auto chunk = w + C_EPISODE1PIC;
+		vid_linc_2nd_w = pictable[chunk - STARTPICS].width;
+		vid_linc_2nd_h = pictable[chunk - STARTPICS].height;
+		vid_linc_2nd_begin();
+		VWB_DrawPic(0, 0, chunk);
+		vid_linc_2nd_end();
+		return;
+	}
+#endif
 	VWB_DrawPic(176, 72, w + C_EPISODE1PIC);
 }
 

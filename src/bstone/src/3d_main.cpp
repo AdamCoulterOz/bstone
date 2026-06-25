@@ -9839,6 +9839,9 @@ void TvosEnsureLincBackground()
 			VL_SetLincLayer(lf.layer, rgba.data(), width, height);
 		}
 	}
+
+	// The second-screen images render with the original (non-rust) palette.
+	VL_SetLincTruePalette(vgapal);
 }
 #endif // BSTONE_TVOS
 
