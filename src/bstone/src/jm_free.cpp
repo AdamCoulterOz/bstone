@@ -1052,6 +1052,9 @@ void PreDemo()
 
 	const auto& assets_info = get_assets_info();
 
+#if !BSTONE_TVOS
+	// tvOS: skip the full-version anti-piracy intro (personal sideload of an
+	// owned copy; not redistributed).
 	if (assets_info.is_aog_full())
 	{
 		// ---------------------
@@ -1087,6 +1090,7 @@ void PreDemo()
 		//
 		VL_Bar(0, 0, 320, 200, 0);
 	}
+#endif // !BSTONE_TVOS
 
 	// ---------------------
 	// Apogee presents
