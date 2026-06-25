@@ -8,6 +8,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cmath>
 #include <cstring>
+#include <ctime>
 
 #include <algorithm>
 #include <map>
@@ -28,6 +29,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "jm_tp.h"
 
 #include "bstone_exception.h"
+#include "bstone_platform.h"
 #include "bstone_saved_game.h"
 #include "bstone_scope_exit.h"
 #include "bstone_r3r_limits.h"
@@ -3289,6 +3291,33 @@ std::int16_t CP_SaveGame(
 			VW_UpdateScreen();
 
 
+#if BSTONE_TVOS
+			// tvOS has no keyboard, and the controller buttons are mapped to
+			// character scancodes (so they can't cleanly drive the edit field).
+			// Default the name to the current local date/time and save directly:
+			// the slot was already chosen and any overwrite confirmed above.
+			{
+				const auto now = std::time(nullptr);
+				const std::tm* const lt = std::localtime(&now);
+
+				if (lt == nullptr ||
+					std::strftime(input, GAME_DESCRIPTION_LEN, "%Y-%m-%d %H:%M", lt) == 0)
+				{
+					std::strcpy(input, "SAVED GAME");
+				}
+
+				SaveGamesAvail[which] = 1;
+				strcpy(&SaveGameNames[which][0], input);
+
+				DrawLSAction(1);
+
+				auto name_path = get_profile_dir() + name;
+				SaveTheGame(name_path, input);
+
+				ShootSnd();
+				exit = 1;
+			}
+#else
 			if (US_LineInput(LSM_X + LSItems.indent + 2, LSM_Y + which * LSItems.y_spacing, input, input, true, GAME_DESCRIPTION_LEN, LSM_W - LSItems.indent - 10))
 			{
 				SaveGamesAvail[which] = 1;
@@ -3316,6 +3345,7 @@ std::int16_t CP_SaveGame(
 				menu_play_esc_pressed_sound();
 				continue;
 			}
+#endif
 
 			fontnumber = 1;
 			break;

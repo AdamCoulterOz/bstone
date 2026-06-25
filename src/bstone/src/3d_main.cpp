@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -30,12 +31,14 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_char_conv.h"
 #include "bstone_endian.h"
 #include "bstone_entry_point.h"
+#include "bstone_platform.h"
 #include "bstone_exception.h"
 #include "bstone_exception_utils.h"
 #include "bstone_four_cc.h"
 #include "bstone_fs.h"
 #include "bstone_fs_utils.h"
 #include "bstone_globals.h"
+#include "bstone_icloud.h"
 #include "bstone_logger.h"
 #include "bstone_math.h"
 #include "bstone_memory_stream.h"
@@ -7105,6 +7108,11 @@ void read_high_scores()
 
 	auto scores_path = get_profile_dir() + get_score_file_name();
 
+#if BSTONE_TVOS
+	// Restore high scores from iCloud if tvOS purged the local copy, before reading.
+	bstone::icloud::pull_save_file_if_missing(scores_path);
+#endif
+
 	auto scores = HighScores{};
 	scores.resize(MaxScores);
 
@@ -7196,6 +7204,11 @@ static void write_high_scores()
 		stream.close();
 
 		bstone::fs_utils::rename_with_overwrite(tmp_scores_path, scores_path);
+
+#if BSTONE_TVOS
+		// Mirror high scores to iCloud so they survive a tvOS storage purge.
+		bstone::icloud::push_save_file(scores_path);
+#endif
 	}
 	catch (const std::exception& ex)
 	{
@@ -7712,6 +7725,11 @@ void read_text_config()
 
 void ReadConfig()
 {
+#if BSTONE_TVOS
+	// Restore config from iCloud if tvOS purged the local copy, before reading it.
+	bstone::icloud::pull_save_file_if_missing(get_profile_dir() + text_config_file_name);
+#endif
+
 	read_text_config();
 }
 
@@ -7899,6 +7917,11 @@ void unarchive_bitset(
 void WriteConfig()
 {
 	write_text_config();
+
+#if BSTONE_TVOS
+	// Mirror config to iCloud so settings survive a tvOS storage purge.
+	bstone::icloud::push_save_file(get_profile_dir() + text_config_file_name);
+#endif
 }
 
 
@@ -8949,6 +8972,10 @@ bool LoadTheGame(
 {
 	bool is_succeed = true;
 
+#if BSTONE_TVOS
+	bstone::icloud::pull_save_file_if_missing(file_name);
+#endif
+
 	auto file_stream = bstone::FileStream{};
 
 	if (!file_stream.open(file_name.c_str(), bstone::FileFlags::file_flags_shared))
@@ -9343,6 +9370,10 @@ bool SaveTheGame(
 
 		return false;
 	}
+
+#if BSTONE_TVOS
+	bstone::icloud::push_save_file(file_name);
+#endif
 
 	return true;
 }
@@ -10043,6 +10074,10 @@ int main(
 
 		freed_main();
 
+#if BSTONE_TVOS
+		bstone::icloud::restore_saves(get_profile_dir());
+#endif
+
 		DemoLoop();
 	}
 	catch (const QuitException&)
@@ -10055,6 +10090,23 @@ int main(
 	}
 
 	pre_quit();
+
+#if BSTONE_TVOS
+	// tvOS: returning from main() leaves the app alive on a torn-down (grey)
+	// screen, so terminate the process on a clean quit (config is already saved
+	// by pre_quit). Use _Exit, NOT exit: exit() runs the C++ static destructors,
+	// and the global memory pools assert because they still hold live allocations
+	// during a hard quit. _Exit terminates immediately; the OS reclaims memory.
+	if (!is_failed)
+	{
+		if (bstone::globals::logger != nullptr)
+		{
+			bstone::globals::logger->flush();
+		}
+
+		std::_Exit(0);
+	}
+#endif
 
 	bstone::globals::sys_mouse_mgr = nullptr;
 	bstone::globals::sys_window_mgr = nullptr;
@@ -10137,7 +10189,24 @@ void InitDestPath()
 
 	if (requested_data_dir.is_empty())
 	{
+#if BSTONE_TVOS
+		// tvOS: the game data ships read-only inside the app bundle.
+		// SDL_GetBasePath() resolves to the bundle's resource directory.
+		constexpr auto base_buffer_size = 4096;
+		std::string base_dir;
+		base_dir.resize(base_buffer_size);
+
+		const auto base_path_size = bstone::sys::SpecialPath::get_base_path(
+			&base_dir.front(),
+			base_buffer_size);
+
+		base_dir.resize(static_cast<std::size_t>(base_path_size));
+
+		is_data_dir_custom_ = true;
+		data_dir_ = base_dir;
+#else
 		data_dir_ = get_default_data_dir();
+#endif
 	}
 	else
 	{

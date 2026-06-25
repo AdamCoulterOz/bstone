@@ -15,6 +15,7 @@ SPDX-License-Identifier: MIT
 
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
+#include "bstone_platform.h"
 #include "bstone_single_pool_resource.h"
 #include "bstone_sys_detail_sdl2.h"
 #include "bstone_sys_exception_sdl2.h"
@@ -626,7 +627,16 @@ int Sdl2Window::map_offset(WindowOffset offset)
 
 Uint32 Sdl2Window::map_flags(const WindowInitParam& param) noexcept
 {
+#if BSTONE_TVOS
+	// tvOS: do NOT request HiDPI. The software video layout is computed in
+	// logical window points; with a 2x HiDPI drawable the SDL_Renderer output
+	// would be twice that and the image would fill only the top-left quarter.
+	// Rendering at logical size and letting the OS upscale to the native panel
+	// looks identical for a 320x200 game.
+	auto sdl_flags = Uint32{};
+#else
 	auto sdl_flags = Uint32{SDL_WINDOW_ALLOW_HIGHDPI};
+#endif
 
 	if (param.renderer_type == WindowRendererType::open_gl)
 	{

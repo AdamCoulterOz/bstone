@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- iCloud Key-Value Storage: durable saved games / config / high scores. -->
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+
+	<!-- NOTE: com.apple.developer.user-management (runs-as-current-user) — which
+	     would bind iCloud KVS to the *selected* Apple TV profile — is intentionally
+	     omitted: Xcode automatic signing cannot provision it (it needs the
+	     "User Management" capability enabled by hand on the App ID portal). Without
+	     it, iCloud KVS resolves to the device's primary iCloud account, which is
+	     identical on a single-profile Apple TV. Re-add the key below and enable the
+	     capability on the App ID for true per-profile separation:
+	       <key>com.apple.developer.user-management</key>
+	       <array><string>runs-as-current-user</string></array> -->
+</dict>
+</plist>

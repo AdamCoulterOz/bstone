@@ -11,7 +11,12 @@ if (BSTONE_INTERNAL_SDL2)
 	add_subdirectory(lib/sdl2)
 endif ()
 
-add_subdirectory(tools)
+# Host-side codegen tools (bin2c/glapigen). They are not used by the default
+# build and cannot run on a cross-compiled device target, so skip them on tvOS.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "tvOS")
+	add_subdirectory(tools)
+endif ()
+
 add_subdirectory(bstone)
 
 if (BSTONE_TESTS)

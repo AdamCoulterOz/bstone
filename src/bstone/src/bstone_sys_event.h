@@ -22,6 +22,41 @@ enum class EventType
 	mouse_motion,
 	mouse_button,
 	mouse_wheel,
+	gamepad_button,
+	gamepad_axis,
+};
+
+// Game-controller buttons (SDL_GameControllerButton, backend-agnostic).
+enum class GamepadButton
+{
+	none,
+	a,
+	b,
+	x,
+	y,
+	back,
+	guide,
+	start,
+	left_stick,
+	right_stick,
+	left_shoulder,
+	right_shoulder,
+	dpad_up,
+	dpad_down,
+	dpad_left,
+	dpad_right,
+};
+
+// Game-controller axes (SDL_GameControllerAxis, backend-agnostic).
+enum class GamepadAxis
+{
+	none,
+	left_x,
+	left_y,
+	right_x,
+	right_y,
+	left_trigger,
+	right_trigger,
 };
 
 struct CommonEvent
@@ -79,6 +114,18 @@ struct WindowEvent : CommonEvent
 	unsigned int id;
 };
 
+struct GamepadButtonEvent : CommonEvent
+{
+	bool is_pressed;
+	GamepadButton button;
+};
+
+struct GamepadAxisEvent : CommonEvent
+{
+	GamepadAxis axis;
+	int value; // -32768 .. 32767 (triggers: 0 .. 32767)
+};
+
 union Event
 {
 	CommonEvent common;
@@ -87,6 +134,8 @@ union Event
 	MouseButtonEvent mouse_button;
 	MouseWheelEvent mouse_wheel;
 	WindowEvent window;
+	GamepadButtonEvent gamepad_button;
+	GamepadAxisEvent gamepad_axis;
 };
 
 } // namespace sys

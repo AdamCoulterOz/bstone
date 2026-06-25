@@ -19,6 +19,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_assert.h"
 #include "bstone_atomic_flag.h"
 #include "bstone_exception_utils.h"
+#include "bstone_platform.h"
 #include "bstone_file_stream.h"
 #include "bstone_fs_utils.h"
 #include "bstone_globals.h"
@@ -1351,7 +1352,13 @@ void VL_Startup()
 try {
 	g_video = nullptr;
 
+#if BSTONE_TVOS
+	// tvOS has no desktop OpenGL and no bundled Vulkan loader; always use the
+	// software renderer, which presents through SDL's Metal-backed SDL_Renderer.
+	const auto is_sw = true;
+#else
 	const auto is_sw = (vid_cfg_get_renderer_type() == bstone::RendererType::software);
+#endif
 
 	auto is_try_sw = false;
 
@@ -1928,6 +1935,13 @@ void vid_cfg_set_refresh_rate(int refresh_rate)
 
 WindowMode vid_cfg_get_window_mode()
 {
+#if BSTONE_TVOS
+	// tvOS windows are always full-screen at the native display resolution.
+	// Reporting fake_fullscreen also makes the video layout size itself from the
+	// real display mode (see vid_create_screen_size_param) rather than the
+	// desktop window config, so the picture fills the screen.
+	return WindowMode::fake_fullscreen;
+#else
 	const bstone::StringView window_mode_string_view = bstone::vid_window_mode_cvar.get_string();
 
 	if (window_mode_string_view == bstone::vid_window_mode_cvar_fullscreen)
@@ -1942,6 +1956,7 @@ WindowMode vid_cfg_get_window_mode()
 	{
 		return WindowMode::windowed;
 	}
+#endif
 }
 
 void vid_cfg_set_window_mode(WindowMode window_mode)

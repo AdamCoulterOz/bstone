@@ -33,6 +33,19 @@ struct SpecialPath
 		const char* application_name,
 		char* buffer,
 		std::intptr_t buffer_size);
+
+	/*
+	Get the read-only base path where the application and its bundled resources
+	live (on Apple bundles this is the .app resource directory).
+
+	Params:
+	  - buffer - a buffer to store a null-terminated path.
+	  - buffer_size - buffer size.
+
+	Returns:
+	  Path length without null symbol.
+	*/
+	static std::intptr_t get_base_path(char* buffer, std::intptr_t buffer_size);
 };
 
 } // namespace sys

@@ -235,3 +235,42 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 }
 
 #endif // _WIN32
+
+// ==========================================================================
+// Apple tvOS entry point.
+// ==========================================================================
+
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+
+#if TARGET_OS_TV
+
+#define BSTONE_ENTRY_POINT_IMPLEMENTATION
+
+// Pull in SDL_UIKitRunApp() while telling SDL not to rename our main() to
+// SDL_main (we provide the OS entry point ourselves and call into SDL's UIKit
+// bootstrap explicitly).
+#define SDL_MAIN_HANDLED
+#include <SDL_main.h>
+
+#include "bstone_entry_point.h"
+
+namespace {
+
+// SDL_main-style trampoline; SDL calls this on the main thread once the UIKit
+// application delegate has finished launching. bstone_entry_point is the game's
+// own main(), renamed by bstone_entry_point.h.
+int bstone_tvos_sdl_main(int argc, char* argv[])
+{
+	return bstone_entry_point(argc, argv);
+}
+
+} // namespace
+
+int main(int argc, char* argv[])
+{
+	return SDL_UIKitRunApp(argc, argv, bstone_tvos_sdl_main);
+}
+
+#endif // TARGET_OS_TV
+#endif // __APPLE__

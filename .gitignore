@@ -1,4 +1,7 @@
 build/
+build-tvos/
+build-*/
+data/
 .vscode/
 .vs/
 .DS_Store

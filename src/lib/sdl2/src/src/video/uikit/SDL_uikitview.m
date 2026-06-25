@@ -412,10 +412,28 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
     return SDL_SCANCODE_UNKNOWN;
 }
 
-- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+/* bstone tvOS patch: Apple TV remote / Menu / arrow / Select / Play-Pause
+   buttons are reported via UIPress with no keyboard key. Deliver them even when
+   a hardware keyboard (GCKeyboard) is attached, so the Menu->Escape "back" works
+   during keyboard testing in the Simulator. Real keyboard keys are still
+   delivered exclusively via GCKeyboard to avoid double input. */
+- (BOOL)bstoneShouldSendPress:(UIPress *)press
 {
     if (!SDL_HasGCKeyboard()) {
-        for (UIPress *press in presses) {
+        return YES;
+    }
+#ifdef __IPHONE_13_4
+    if ([press respondsToSelector:@selector((key))] && press.key != nil) {
+        return NO;
+    }
+#endif
+    return YES;
+}
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    for (UIPress *press in presses) {
+        if ([self bstoneShouldSendPress:press]) {
             SDL_Scancode scancode = [self scancodeFromPress:press];
             SDL_SendKeyboardKey(SDL_PRESSED, scancode);
         }
@@ -427,8 +445,8 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
 {
-    if (!SDL_HasGCKeyboard()) {
-        for (UIPress *press in presses) {
+    for (UIPress *press in presses) {
+        if ([self bstoneShouldSendPress:press]) {
             SDL_Scancode scancode = [self scancodeFromPress:press];
             SDL_SendKeyboardKey(SDL_RELEASED, scancode);
         }
@@ -440,8 +458,8 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
 
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
 {
-    if (!SDL_HasGCKeyboard()) {
-        for (UIPress *press in presses) {
+    for (UIPress *press in presses) {
+        if ([self bstoneShouldSendPress:press]) {
             SDL_Scancode scancode = [self scancodeFromPress:press];
             SDL_SendKeyboardKey(SDL_RELEASED, scancode);
         }

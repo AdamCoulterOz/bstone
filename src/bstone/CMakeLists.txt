@@ -123,11 +123,15 @@ if(BSTONE_VULKAN_COMPILE_SHADERS)
 	add_dependencies(bstone bstone_vulkan_compile_shaders)
 endif()
 
-add_custom_command(
-	TARGET bstone POST_BUILD
-	COMMAND $<$<CONFIG:RELEASE>:${CMAKE_STRIP}> $<$<CONFIG:RELEASE>:$<TARGET_FILE:bstone>>
-	VERBATIM
-)
+# The Apple/Xcode toolchain strips during its own packaging; the manual strip
+# below mishandles app bundles, so skip it on Apple platforms.
+if (NOT APPLE)
+	add_custom_command(
+		TARGET bstone POST_BUILD
+		COMMAND $<$<CONFIG:RELEASE>:${CMAKE_STRIP}> $<$<CONFIG:RELEASE>:$<TARGET_FILE:bstone>>
+		VERBATIM
+	)
+endif ()
 
 if (BSTONE_TRIM_FILE_PATHS_IN_EXE)
 	add_dependencies(bstone bstone_ltrimcs)
@@ -170,6 +174,77 @@ if (WIN32)
 	set_target_properties(bstone PROPERTIES
 		WIN32_EXECUTABLE TRUE
 	)
+endif ()
+
+#
+# Apple tvOS application bundle.
+#
+if (CMAKE_SYSTEM_NAME STREQUAL "tvOS")
+	set(BSTONE_TVOS_BUNDLE_ID "org.bibendovsky.bstone"
+		CACHE STRING "tvOS application bundle identifier.")
+	set(BSTONE_TVOS_DEVELOPMENT_TEAM ""
+		CACHE STRING "Apple Developer Team ID for code signing (or set it in Xcode).")
+
+	set(BSTONE_TVOS_BUNDLE_SHORT_VERSION "${PROJECT_VERSION}")
+	set(BSTONE_TVOS_BUNDLE_VERSION "${PROJECT_VERSION}")
+
+	configure_file(
+		"${PROJECT_SOURCE_DIR}/src/resources/tvos/Info.plist.in"
+		"${PROJECT_BINARY_DIR}/src/resources/tvos/Info.plist"
+		@ONLY
+	)
+
+	set_target_properties(bstone PROPERTIES
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_INFO_PLIST "${PROJECT_BINARY_DIR}/src/resources/tvos/Info.plist"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${BSTONE_TVOS_BUNDLE_ID}"
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "3"
+		XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${BSTONE_TVOS_DEVELOPMENT_TEAM}"
+		XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+		XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+		XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${PROJECT_SOURCE_DIR}/src/resources/tvos/bstone.entitlements"
+	)
+
+	# iCloud Key-Value Store saved-game persistence (Objective-C++ with ARC).
+	target_sources(bstone PRIVATE
+		src/bstone_icloud.h
+		src/bstone_icloud_tvos.mm)
+	set_source_files_properties(src/bstone_icloud_tvos.mm PROPERTIES
+		COMPILE_FLAGS "-fobjc-arc")
+	source_group("bstone/sys/tvos" FILES src/bstone_icloud.h src/bstone_icloud_tvos.mm)
+
+	# App icon + Top Shelf brand assets (parallax layered icon). Xcode runs actool
+	# on the .xcassets and ASSETCATALOG_COMPILER_APPICON_NAME picks the brand asset.
+	set(BSTONE_TVOS_ASSETS "${PROJECT_SOURCE_DIR}/src/resources/tvos/Assets.xcassets")
+	if (EXISTS "${BSTONE_TVOS_ASSETS}")
+		target_sources(bstone PRIVATE "${BSTONE_TVOS_ASSETS}")
+		set_source_files_properties("${BSTONE_TVOS_ASSETS}" PROPERTIES
+			MACOSX_PACKAGE_LOCATION Resources)
+		set_target_properties(bstone PROPERTIES
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "App Icon & Top Shelf Image")
+		source_group("resources/tvos" FILES "${BSTONE_TVOS_ASSETS}")
+		message(STATUS "[bstone] tvOS: bundling app icon / Top Shelf asset catalog")
+	endif ()
+
+	# Bundle the game data (*.BS1 / *.BS6 / *.VSI) placed in <repo>/data/ into the
+	# app's resources, where SDL_GetBasePath() resolves at runtime (see the tvOS
+	# branch of InitDestPath in 3d_main.cpp). Run ./fetch-data.sh to populate it
+	# with the free Aliens of Gold shareware data.
+	file(GLOB BSTONE_TVOS_DATA_FILES
+		"${CMAKE_SOURCE_DIR}/data/*.BS1"
+		"${CMAKE_SOURCE_DIR}/data/*.BS6"
+		"${CMAKE_SOURCE_DIR}/data/*.VSI")
+
+	if (BSTONE_TVOS_DATA_FILES)
+		target_sources(bstone PRIVATE ${BSTONE_TVOS_DATA_FILES})
+		set_source_files_properties(${BSTONE_TVOS_DATA_FILES} PROPERTIES
+			MACOSX_PACKAGE_LOCATION Resources)
+		source_group("data" FILES ${BSTONE_TVOS_DATA_FILES})
+		list(LENGTH BSTONE_TVOS_DATA_FILES BSTONE_TVOS_DATA_COUNT)
+		message(STATUS "[bstone] tvOS: bundling ${BSTONE_TVOS_DATA_COUNT} game data file(s) from ${CMAKE_SOURCE_DIR}/data/")
+	else ()
+		message(WARNING "[bstone] tvOS: no game data in ${CMAKE_SOURCE_DIR}/data/ — the app will build but show \"Content not found\". Run ./fetch-data.sh.")
+	endif ()
 endif ()
 
 #
@@ -1060,6 +1135,7 @@ endif ()
 #
 install(TARGETS bstone
 	RUNTIME DESTINATION "."
+	BUNDLE DESTINATION "."
 )
 
 install(FILES ../../CHANGELOG.md

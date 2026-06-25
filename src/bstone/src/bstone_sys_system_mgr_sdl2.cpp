@@ -10,6 +10,7 @@ SPDX-License-Identifier: MIT
 #include "SDL.h"
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
+#include "bstone_platform.h"
 #include "bstone_single_pool_resource.h"
 #include "bstone_string_view.h"
 #include "bstone_sys_logger.h"
@@ -205,18 +206,39 @@ void Sdl2SystemMgr::configure_event_types() noexcept
 	SDL_EventState(SDL_JOYAXISMOTION, SDL_DISABLE);
 	SDL_EventState(SDL_JOYBALLMOTION, SDL_DISABLE);
 	SDL_EventState(SDL_JOYHATMOTION, SDL_DISABLE);
+#if BSTONE_TVOS
+	SDL_EventState(SDL_JOYBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_JOYBUTTONUP, SDL_ENABLE);
+#else
 	SDL_EventState(SDL_JOYBUTTONDOWN, SDL_DISABLE);
 	SDL_EventState(SDL_JOYBUTTONUP, SDL_DISABLE);
+#endif
+#if BSTONE_TVOS
+	// Keep device add/remove so we notice controllers that connect asynchronously.
+	SDL_EventState(SDL_JOYDEVICEADDED, SDL_ENABLE);
+	SDL_EventState(SDL_JOYDEVICEREMOVED, SDL_ENABLE);
+#else
 	SDL_EventState(SDL_JOYDEVICEADDED, SDL_DISABLE);
 	SDL_EventState(SDL_JOYDEVICEREMOVED, SDL_DISABLE);
+#endif
 	SDL_EventState(SDL_JOYBATTERYUPDATED, SDL_DISABLE); // v2.24.0+ (0x607)
 
+#if BSTONE_TVOS
+	// tvOS: game controllers and the Siri Remote are the only input devices.
+	SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERBUTTONUP, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERDEVICEADDED, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERDEVICEREMOVED, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERDEVICEREMAPPED, SDL_DISABLE);
+#else
 	SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_DISABLE);
 	SDL_EventState(SDL_CONTROLLERBUTTONDOWN, SDL_DISABLE);
 	SDL_EventState(SDL_CONTROLLERBUTTONUP, SDL_DISABLE);
 	SDL_EventState(SDL_CONTROLLERDEVICEADDED, SDL_DISABLE);
 	SDL_EventState(SDL_CONTROLLERDEVICEREMOVED, SDL_DISABLE);
 	SDL_EventState(SDL_CONTROLLERDEVICEREMAPPED, SDL_DISABLE);
+#endif
 	SDL_EventState(SDL_CONTROLLERTOUCHPADDOWN, SDL_DISABLE); // v2.0.14+ (0x656)
 	SDL_EventState(SDL_CONTROLLERTOUCHPADMOTION, SDL_DISABLE); // v2.0.14+ (0x657)
 	SDL_EventState(SDL_CONTROLLERTOUCHPADUP, SDL_DISABLE); // v2.0.14+ (0x658)

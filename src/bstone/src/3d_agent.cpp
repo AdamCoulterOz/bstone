@@ -29,6 +29,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "bstone_archiver.h"
 #include "bstone_ascii.h"
+#include "bstone_platform.h"
 #include "bstone_math.h"
 #include "bstone_memory_stream.h"
 #include "bstone_saved_game.h"
@@ -381,7 +382,8 @@ void GiveWeapon(
 	int weapon);
 
 void GiveAmmo(
-	std::int16_t ammo);
+	std::int16_t ammo,
+	bool play_sound = true);
 
 void DrawGAmmoNum();
 void DrawPDAmmoMsg();
@@ -616,7 +618,14 @@ void ControlMovement(
 
 		const auto angle_delta = 90 - static_cast<int>(bstone::math::rad_to_deg(std::atan2(y, x)));
 		const auto angle = clamp_angle(ob->angle + angle_delta);
+#if BSTONE_TVOS
+		// Use the full 2D velocity magnitude so the diagonal speed stays
+		// consistent as the analog stick rotates between the axes (otherwise the
+		// speed dies just before each cardinal crossover).
+		const auto value = std::sqrt((x * x) + (y * y));
+#else
 		const auto value = std::abs(y);
+#endif
 
 		Thrust(static_cast<std::int16_t>(angle), value);
 	}
@@ -1330,7 +1339,10 @@ void DrawWeaponPic()
 void GiveWeapon(
 	int weapon)
 {
-	GiveAmmo(6);
+	// The weapon's own pickup sound (played immediately after) always preempts this
+	// ammo sound on the shared player-item voice, so it is never actually heard and
+	// only causes a voice-collision pop. Grant the ammo silently.
+	GiveAmmo(6, false);
 
 	if ((gamestate.weapons & (1 << weapon)) == 0)
 	{
@@ -1626,7 +1638,8 @@ void DrawLedStrip(
 }
 
 void GiveAmmo(
-	std::int16_t ammo)
+	std::int16_t ammo,
+	bool play_sound)
 {
 
 #if MP_NO_MORE_AMMO > MP_BONUS
@@ -1663,7 +1676,10 @@ void GiveAmmo(
 		DrawWeapon();
 	}
 
-	sd_play_player_item_sound(GETAMMOSND);
+	if (play_sound)
+	{
+		sd_play_player_item_sound(GETAMMOSND);
+	}
 }
 
 

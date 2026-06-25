@@ -6,6 +6,7 @@ SPDX-License-Identifier: MIT
 
 #include "SDL_mouse.h"
 #include "bstone_exception.h"
+#include "bstone_platform.h"
 #include "bstone_single_pool_resource.h"
 #include "bstone_sys_exception_sdl2.h"
 #include "bstone_sys_mouse_mgr_sdl2.h"
@@ -61,7 +62,13 @@ void Sdl2MouseMgr::operator delete(void* ptr)
 
 void Sdl2MouseMgr::do_set_relative_mode(bool is_enable)
 {
+#if BSTONE_TVOS
+	// tvOS has no mouse; SDL has no relative-mode implementation there and would
+	// fail. Relative mouse mode is meaningless on tvOS, so make it a no-op.
+	static_cast<void>(is_enable);
+#else
 	sdl2_ensure_result(SDL_SetRelativeMouseMode(is_enable ? SDL_TRUE : SDL_FALSE));
+#endif
 }
 
 MemoryResource& Sdl2MouseMgr::get_memory_resource()

@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 */
 
 
+#include <cmath>
 #include <cstring>
 
 #include "audio.h"
@@ -545,6 +546,87 @@ void PollMouseMove()
 	controly += static_cast<int>(delta_y);
 }
 
+// Response curve for a normalized 0..1 magnitude: cubic gives fine control near
+// centre and a strong ramp towards the edge.
+double PollControllerCurve(double n)
+{
+	if (n < 0.0) { n = 0.0; }
+	else if (n > 1.0) { n = 1.0; }
+
+	return n * n * n;
+}
+
+void PollControllerMove()
+{
+	int left_x;
+	int left_y;
+	int right_x;
+
+	if (!in_get_gamepad_move(left_x, left_y, right_x))
+	{
+		return;
+	}
+
+	// Walk by default; hold a run button (LB / L3 / R3, all bound to e_bi_run) to
+	// run. (Speed still scales with stick deflection via the cubic curve.)
+	const auto is_running = in_is_binding_pressed(e_bi_run);
+	const auto value = static_cast<double>(tics * (is_running ? RUNMOVE : BASEMOVE));
+
+	// Left stick as a single 2D vector so diagonals blend forward + strafe:
+	// curve the vector's magnitude, then keep its original direction.
+	{
+		const auto nx = static_cast<double>(left_x) / 32768.0; // left = -
+		const auto ny = static_cast<double>(left_y) / 32768.0; // up = -
+		auto mag = std::sqrt((nx * nx) + (ny * ny));
+
+		if (mag > 1.0)
+		{
+			mag = 1.0;
+		}
+
+		constexpr auto deadzone = 8000.0 / 32768.0;
+
+		if (mag > deadzone)
+		{
+			const auto curved = PollControllerCurve((mag - deadzone) / (1.0 - deadzone));
+			const auto scale = (curved / mag) * value; // curved magnitude, original direction
+
+			controly += static_cast<int>(ny * scale);     // up = forward
+			strafe_value += static_cast<int>(nx * scale); // left = strafe left
+		}
+	}
+
+	// Right stick: turn. Small deadzone + an "expo" blend: a linear term gives real
+	// fine aim near centre, a cubic term lets the edges spin fast. Tuned for a
+	// controller paired DIRECTLY to the Apple TV over Bluetooth. (The simulator fed
+	// the controller through macOS, which reports larger near-centre values, so it
+	// tolerated a big deadzone + quartic; real hardware does not — near centre it
+	// went dead.)
+	{
+		constexpr auto deadzone = 3000.0;
+		constexpr auto max_axis = 32767.0;
+		constexpr auto turn_units_per_tic = 60.0; // rate at full deflection
+		constexpr auto expo = 0.42;               // linear fraction near centre (0=cubic, 1=linear)
+
+		const auto a = static_cast<double>(right_x);
+		const auto mag = (a < 0.0 ? -a : a);
+
+		if (mag > deadzone)
+		{
+			auto n = (mag - deadzone) / (max_axis - deadzone);
+
+			if (n > 1.0)
+			{
+				n = 1.0;
+			}
+
+			const auto shaped = (expo * n) + ((1.0 - expo) * n * n * n);
+			const auto turn = (a < 0.0 ? -shaped : shaped);
+			controlx += static_cast<int>(turn * turn_units_per_tic * static_cast<double>(tics));
+		}
+	}
+}
+
 /*
 ===================
 =
@@ -627,6 +709,8 @@ void PollControls()
 	{
 		PollMouseMove();
 	}
+
+	PollControllerMove();
 
 	//
 	// bound movement to a maximum

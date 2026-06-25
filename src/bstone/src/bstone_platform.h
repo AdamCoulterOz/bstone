@@ -58,6 +58,33 @@ SPDX-License-Identifier: MIT
 
 // ==========================================================================
 
+//
+// Apple sub-platform detection (tvOS is also POSIX).
+//
+#if defined(__APPLE__)
+	#include <TargetConditionals.h>
+
+	#ifndef BSTONE_APPLE
+		#define BSTONE_APPLE 1
+	#endif
+
+	#if defined(TARGET_OS_TV) && TARGET_OS_TV
+		#ifndef BSTONE_TVOS
+			#define BSTONE_TVOS 1
+		#endif
+	#endif
+#endif // __APPLE__
+
+#ifndef BSTONE_APPLE
+	#define BSTONE_APPLE 0
+#endif
+
+#ifndef BSTONE_TVOS
+	#define BSTONE_TVOS 0
+#endif
+
+// ==========================================================================
+
 #if (BSTONE_WIN32 + BSTONE_POSIX) != 1
 	#error Expected one platform.
 #endif

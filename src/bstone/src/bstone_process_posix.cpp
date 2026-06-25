@@ -12,6 +12,31 @@ SPDX-License-Identifier: MIT
 
 #include "bstone_process.h"
 
+#include "bstone_platform.h"
+
+#if BSTONE_TVOS
+
+// tvOS sandbox: spawning child processes (fork/exec) and launching an external
+// URL handler are unavailable. Resource extraction and "open file/URL" are not
+// used on tvOS, so provide inert stubs that satisfy the interface.
+
+namespace bstone {
+namespace process {
+
+CreateAndWaitForExitResult create_and_wait_for_exit(const CreateAndWaitForExitParam&)
+{
+	return CreateAndWaitForExitResult{false, 0};
+}
+
+void open_file_or_url(const char*)
+{
+}
+
+} // namespace process
+} // namespace bstone
+
+#else // BSTONE_TVOS
+
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -547,5 +572,7 @@ void open_file_or_url(const char* url_utf8)
 
 } // namespace process
 } // namespace bstone
+
+#endif // BSTONE_TVOS
 
 #endif // _WIN32

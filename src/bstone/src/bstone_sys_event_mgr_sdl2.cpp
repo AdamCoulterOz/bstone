@@ -8,9 +8,12 @@ SPDX-License-Identifier: MIT
 
 #include "SDL.h"
 
+#include <string>
+
 #include "bstone_assert.h"
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
+#include "bstone_platform.h"
 #include "bstone_single_pool_resource.h"
 #include "bstone_sys_exception_sdl2.h"
 #include "bstone_sys_event_mgr_null.h"
@@ -39,6 +42,8 @@ private:
 	Logger& logger_;
 	bool is_initialized_{};
 	Sdl2Subsystem sdl2_subsystem_{};
+	SDL_GameController* gamepad_{};
+	int gamepad_last_axis_[6]{};
 
 private:
 	bool do_is_initialized() const noexcept override;
@@ -57,6 +62,11 @@ private:
 	static bool handle_event(const SDL_MouseMotionEvent& sdl_e, MouseMotionEvent& e) noexcept;
 	static bool handle_event(const SDL_MouseButtonEvent& sdl_e, MouseButtonEvent& e) noexcept;
 	static bool handle_event(const SDL_MouseWheelEvent& sdl_e, MouseWheelEvent& e) noexcept;
+	static GamepadButton map_gamepad_button(int sdl_button) noexcept;
+	static GamepadAxis map_gamepad_axis(int sdl_axis) noexcept;
+	static bool handle_event(const SDL_ControllerButtonEvent& sdl_e, GamepadButtonEvent& e) noexcept;
+	static bool handle_event(const SDL_ControllerAxisEvent& sdl_e, GamepadAxisEvent& e) noexcept;
+	static void open_gamepads(Logger& logger) noexcept;
 	static bool handle_event(const SDL_WindowEvent& sdl_e, WindowEvent& e) noexcept;
 	static bool handle_event(const SDL_Event& sdl_e, Event& e) noexcept;
 };
@@ -75,9 +85,23 @@ try
 {
 	logger_.log_information("Start up SDL event manager.");
 
+#if BSTONE_TVOS
+	// tvOS: route the Menu/B and pause buttons to the game instead of UIKit, and
+	// keep the Siri Remote axes fixed to its physical orientation.
+	SDL_SetHint(SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS, "0");
+	SDL_SetHint(SDL_HINT_APPLE_TV_REMOTE_ALLOW_ROTATION, "0");
+
+	auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_GAMECONTROLLER};
+#else
 	auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_EVENTS};
+#endif
 	sdl2_subsystem.swap(sdl2_subsystem_);
 	is_initialized_ = true;
+
+#if BSTONE_TVOS
+	SDL_GameControllerEventState(SDL_ENABLE);
+	open_gamepads(logger_);
+#endif
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 Sdl2EventMgr::~Sdl2EventMgr()
@@ -108,12 +132,58 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 
 	while (SDL_PollEvent(&sdl_e))
 	{
+#if BSTONE_TVOS
+		// Open/close the game controller as it connects. tvOS delivers this
+		// asynchronously after launch, so it can't be done once at startup.
+		if (sdl_e.type == SDL_CONTROLLERDEVICEADDED)
+		{
+			gamepad_ = SDL_GameControllerOpen(sdl_e.cdevice.which);
+		}
+		else if (sdl_e.type == SDL_CONTROLLERDEVICEREMOVED)
+		{
+			gamepad_ = nullptr;
+		}
+#endif
 		if (handle_event(sdl_e, e))
 		{
 			e.common.timestamp = sdl_e.common.timestamp;
 			return true;
 		}
 	}
+
+#if BSTONE_TVOS
+	// The tvOS Simulator (and some real setups) update the game controller's
+	// axis state but never fire SDL_CONTROLLERAXISMOTION events. Poll the axes
+	// directly and synthesize axis events so sticks/triggers work everywhere.
+	if (gamepad_ != nullptr)
+	{
+		static const SDL_GameControllerAxis sdl_axes[6] =
+		{
+			SDL_CONTROLLER_AXIS_LEFTX,
+			SDL_CONTROLLER_AXIS_LEFTY,
+			SDL_CONTROLLER_AXIS_RIGHTX,
+			SDL_CONTROLLER_AXIS_RIGHTY,
+			SDL_CONTROLLER_AXIS_TRIGGERLEFT,
+			SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
+		};
+
+		const auto abs_i = [](int v) { return v < 0 ? -v : v; };
+
+		for (auto i = 0; i < 6; ++i)
+		{
+			const auto value = static_cast<int>(SDL_GameControllerGetAxis(gamepad_, sdl_axes[i]));
+
+			if (abs_i(value - gamepad_last_axis_[i]) > 1024)
+			{
+				gamepad_last_axis_[i] = value;
+				e.gamepad_axis.axis = map_gamepad_axis(sdl_axes[i]);
+				e.gamepad_axis.value = value;
+				e.gamepad_axis.type = EventType::gamepad_axis;
+				return true;
+			}
+		}
+	}
+#endif
 
 	e.common.type = EventType::none;
 	return false;
@@ -425,10 +495,102 @@ bool Sdl2EventMgr::handle_event(const SDL_WindowEvent& sdl_e, WindowEvent& e) no
 	return true;
 }
 
+GamepadButton Sdl2EventMgr::map_gamepad_button(int sdl_button) noexcept
+{
+	switch (sdl_button)
+	{
+		case SDL_CONTROLLER_BUTTON_A: return GamepadButton::a;
+		case SDL_CONTROLLER_BUTTON_B: return GamepadButton::b;
+		case SDL_CONTROLLER_BUTTON_X: return GamepadButton::x;
+		case SDL_CONTROLLER_BUTTON_Y: return GamepadButton::y;
+		case SDL_CONTROLLER_BUTTON_BACK: return GamepadButton::back;
+		case SDL_CONTROLLER_BUTTON_GUIDE: return GamepadButton::guide;
+		case SDL_CONTROLLER_BUTTON_START: return GamepadButton::start;
+		case SDL_CONTROLLER_BUTTON_LEFTSTICK: return GamepadButton::left_stick;
+		case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return GamepadButton::right_stick;
+		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return GamepadButton::left_shoulder;
+		case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return GamepadButton::right_shoulder;
+		case SDL_CONTROLLER_BUTTON_DPAD_UP: return GamepadButton::dpad_up;
+		case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return GamepadButton::dpad_down;
+		case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return GamepadButton::dpad_left;
+		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return GamepadButton::dpad_right;
+		default: return GamepadButton::none;
+	}
+}
+
+GamepadAxis Sdl2EventMgr::map_gamepad_axis(int sdl_axis) noexcept
+{
+	switch (sdl_axis)
+	{
+		case SDL_CONTROLLER_AXIS_LEFTX: return GamepadAxis::left_x;
+		case SDL_CONTROLLER_AXIS_LEFTY: return GamepadAxis::left_y;
+		case SDL_CONTROLLER_AXIS_RIGHTX: return GamepadAxis::right_x;
+		case SDL_CONTROLLER_AXIS_RIGHTY: return GamepadAxis::right_y;
+		case SDL_CONTROLLER_AXIS_TRIGGERLEFT: return GamepadAxis::left_trigger;
+		case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: return GamepadAxis::right_trigger;
+		default: return GamepadAxis::none;
+	}
+}
+
+bool Sdl2EventMgr::handle_event(const SDL_ControllerButtonEvent& sdl_e, GamepadButtonEvent& e) noexcept
+{
+	const auto button = map_gamepad_button(sdl_e.button);
+
+	if (button == GamepadButton::none)
+	{
+		return false;
+	}
+
+	e.is_pressed = (sdl_e.state == SDL_PRESSED);
+	e.button = button;
+	e.type = EventType::gamepad_button;
+	return true;
+}
+
+bool Sdl2EventMgr::handle_event(const SDL_ControllerAxisEvent& sdl_e, GamepadAxisEvent& e) noexcept
+{
+	const auto axis = map_gamepad_axis(sdl_e.axis);
+
+	if (axis == GamepadAxis::none)
+	{
+		return false;
+	}
+
+	e.axis = axis;
+	e.value = sdl_e.value;
+	e.type = EventType::gamepad_axis;
+	return true;
+}
+
+void Sdl2EventMgr::open_gamepads(Logger& logger) noexcept
+{
+	static_cast<void>(logger);
+
+	// Open any game controllers already connected at startup (desktop). On tvOS
+	// controllers connect asynchronously after launch and are opened in
+	// do_poll_event when SDL_CONTROLLERDEVICEADDED arrives.
+	const auto count = SDL_NumJoysticks();
+
+	for (auto i = 0; i < count; ++i)
+	{
+		if (SDL_IsGameController(i) == SDL_TRUE)
+		{
+			SDL_GameControllerOpen(i);
+		}
+	}
+}
+
 bool Sdl2EventMgr::handle_event(const SDL_Event& sdl_e, Event& e) noexcept
 {
 	switch (sdl_e.type)
 	{
+		case SDL_CONTROLLERBUTTONDOWN:
+		case SDL_CONTROLLERBUTTONUP:
+			return handle_event(sdl_e.cbutton, e.gamepad_button);
+
+		case SDL_CONTROLLERAXISMOTION:
+			return handle_event(sdl_e.caxis, e.gamepad_axis);
+
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 			return handle_event(sdl_e.key, e.keyboard);

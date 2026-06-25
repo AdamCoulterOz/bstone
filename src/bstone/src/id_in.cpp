@@ -32,6 +32,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_vl.h"
 #include "bstone_ascii.h"
 #include "bstone_char_conv.h"
+#include <string>
+
 #include "bstone_globals.h"
 #include "bstone_sys_keyboard_key.h"
 
@@ -801,6 +803,77 @@ void in_handle_window(const bstone::sys::WindowEvent& e)
 	}
 }
 
+// ==========================================================================
+// Game controller
+// ==========================================================================
+
+int in_gc_left_x = 0;  // -32768..32767
+int in_gc_left_y = 0;
+int in_gc_right_x = 0;
+bool in_gc_dpad_up = false;
+bool in_gc_dpad_down = false;
+bool in_gc_dpad_left = false;
+bool in_gc_dpad_right = false;
+
+constexpr auto in_gc_axis_deadzone = 8000;
+constexpr auto in_gc_trigger_threshold = 16384;
+constexpr auto in_gc_nav_threshold = 16384;
+
+void in_gc_set_key(ScanCode scan_code, bool is_pressed)
+{
+	Keyboard[scan_code] = is_pressed;
+
+	if (is_pressed)
+	{
+		LastScan = scan_code;
+	}
+}
+
+void in_handle_gamepad_button(const bstone::sys::GamepadButtonEvent& e)
+{
+	using Gb = bstone::sys::GamepadButton;
+	const auto is_pressed = e.is_pressed;
+
+	switch (e.button)
+	{
+		case Gb::a:
+			in_gc_set_key(ScanCode::sc_space, is_pressed); // use / menu confirm
+			in_gc_set_key(ScanCode::sc_y, is_pressed);     // also answer "press Y" confirmations
+			break;
+		case Gb::y: in_gc_set_key(ScanCode::sc_y, is_pressed); break;                   // "press Y" confirm
+		case Gb::b: in_gc_set_key(ScanCode::sc_escape, is_pressed); break;              // back / open menu
+		case Gb::start: in_gc_set_key(ScanCode::sc_escape, is_pressed); break;          // pause menu (resume/save/load/options)
+		case Gb::back: in_gc_set_key(ScanCode::sc_tab, is_pressed); break;              // stats
+		case Gb::left_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;    // run (L3)
+		case Gb::right_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;   // run (R3)
+		case Gb::left_shoulder: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break; // run (LB)
+
+		case Gb::dpad_left: in_gc_set_key(ScanCode::sc_q, is_pressed); in_gc_dpad_left = is_pressed; break;     // prev weapon
+		case Gb::dpad_right: in_gc_set_key(ScanCode::sc_e, is_pressed); in_gc_dpad_right = is_pressed; break;   // next weapon
+		case Gb::dpad_up: in_gc_set_key(ScanCode::sc_equals, is_pressed); in_gc_dpad_up = is_pressed; break;    // radar magnify
+		case Gb::dpad_down: in_gc_set_key(ScanCode::sc_minus, is_pressed); in_gc_dpad_down = is_pressed; break; // radar minify
+
+		default: break; // x, right_shoulder (RB), guide: unbound for now
+	}
+}
+
+void in_handle_gamepad_axis(const bstone::sys::GamepadAxisEvent& e)
+{
+	using Ga = bstone::sys::GamepadAxis;
+
+	switch (e.axis)
+	{
+		case Ga::left_x: in_gc_left_x = e.value; break;
+		case Ga::left_y: in_gc_left_y = e.value; break;
+		case Ga::right_x: in_gc_right_x = e.value; break;
+
+		case Ga::right_trigger: in_gc_set_key(ScanCode::sc_control, e.value > in_gc_trigger_threshold); break; // attack
+		case Ga::left_trigger: in_gc_set_key(ScanCode::sc_alt, e.value > in_gc_trigger_threshold); break;      // strafe modifier
+
+		default: break;
+	}
+}
+
 } // namespace
 
 void in_handle_events()
@@ -832,6 +905,14 @@ void in_handle_events()
 #endif
 			case bstone::sys::EventType::keyboard:
 				in_handle_keyboard(e.keyboard);
+				break;
+
+			case bstone::sys::EventType::gamepad_button:
+				in_handle_gamepad_button(e.gamepad_button);
+				break;
+
+			case bstone::sys::EventType::gamepad_axis:
+				in_handle_gamepad_axis(e.gamepad_axis);
 				break;
 
 			case bstone::sys::EventType::mouse_motion:
@@ -963,6 +1044,40 @@ void IN_ReadControl(std::int16_t, ControlInfo* control_info)
 			}
 		}
 
+		// Handle game controller (D-pad / left stick) for menu navigation.
+		//
+		if (ControlTypeUsed == ctrl_None)
+		{
+			auto gc_mx = motion_None;
+			auto gc_my = motion_None;
+
+			if (in_gc_dpad_up || in_gc_left_y < -in_gc_nav_threshold)
+			{
+				gc_my = motion_Up;
+			}
+			else if (in_gc_dpad_down || in_gc_left_y > in_gc_nav_threshold)
+			{
+				gc_my = motion_Down;
+			}
+
+			if (in_gc_dpad_left || in_gc_left_x < -in_gc_nav_threshold)
+			{
+				gc_mx = motion_Left;
+			}
+			else if (in_gc_dpad_right || in_gc_left_x > in_gc_nav_threshold)
+			{
+				gc_mx = motion_Right;
+			}
+
+			if (gc_mx != motion_None || gc_my != motion_None)
+			{
+				mx = gc_mx;
+				my = gc_my;
+				realdelta = false;
+				ControlTypeUsed = ctrl_Keyboard;
+			}
+		}
+
 		// Handle mouse input...
 		//
 		if (MousePresent && (ControlTypeUsed == ctrl_None))
@@ -999,6 +1114,17 @@ void IN_ReadControl(std::int16_t, ControlInfo* control_info)
 	control_info->button2 = buttons & (1 << 2);
 	control_info->button3 = buttons & (1 << 3);
 	control_info->dir = DirTable[((my + 1) * 3) + (mx + 1)];
+}
+
+bool in_get_gamepad_move(int& left_x, int& left_y, int& right_x)
+{
+	// Raw axis values; the deadzone and response curve are applied by the
+	// caller (PollControllerMove).
+	left_x = in_gc_left_x;
+	left_y = in_gc_left_y;
+	right_x = in_gc_right_x;
+
+	return left_x != 0 || left_y != 0 || right_x != 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////

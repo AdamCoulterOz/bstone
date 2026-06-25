@@ -49,5 +49,20 @@ std::intptr_t SpecialPath::get_user_specific_data_path(
 	return path_size;
 }
 
+std::intptr_t SpecialPath::get_base_path(char* buffer, std::intptr_t buffer_size)
+{
+	using SdlBasePathUPtr = std::unique_ptr<char[], Sdl2PrefPathDeleter>;
+	const auto sdl_path = SdlBasePathUPtr{sdl2_ensure_result(SDL_GetBasePath())};
+	const auto path_size = char_traits::get_size(sdl_path.get());
+
+	if (path_size >= buffer_size)
+	{
+		BSTONE_THROW_STATIC_SOURCE("Buffer too small.");
+	}
+
+	std::copy_n(sdl_path.get(), path_size + 1, buffer);
+	return path_size;
+}
+
 } // namespace sys
 } // namespace bstone
