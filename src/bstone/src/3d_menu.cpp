@@ -1771,6 +1771,29 @@ void US_ControlPanel(
 		0x04 :
 		TERM_BACK_COLOR);
 
+#if BSTONE_TVOS
+	// tvOS: front-end menus get the LINC bezel (the in-game menu keeps the paused
+	// 3D view behind it). The opaque panel-background colour is keyed transparent
+	// so only text / cursor / selection box show over the bezel.
+	const auto linc_active = !ingame;
+
+	if (linc_active)
+	{
+		vid_linc_bg_index = menu_background_color;
+		TvosLincBegin();
+	}
+
+	const auto linc_guard = bstone::make_scope_exit(
+		[linc_active]()
+		{
+			if (linc_active)
+			{
+				vid_linc_bg_index = 0xFF;
+				TvosLincEnd();
+			}
+		});
+#endif // BSTONE_TVOS
+
 
 	std::int16_t which;
 
@@ -6519,7 +6542,7 @@ void MenuFadeOut()
 
 void MenuFadeIn()
 {
-	VL_FadeIn(0, 255, vgapal, 10);
+	VL_FadeIn(0, 255, vid_tvos_linc ? vgapal_rust : vgapal, 10);
 }
 
 void menu_enable_all_episodes()

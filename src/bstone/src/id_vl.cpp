@@ -347,6 +347,8 @@ bool vid_has_vsync = false;
 bool vid_is_hud = false;
 bool vid_is_3d = false;
 bool vid_is_movie = false;
+bool vid_tvos_linc = false; // tvOS: front-end LINC bezel + transparent UI cutout
+std::uint8_t vid_linc_bg_index = 0xFF; // tvOS LINC: UI index drawn transparent (menu panel bg); 0xFF = none
 
 bstone::SpriteCache vid_sprite_cache;
 
@@ -1498,6 +1500,11 @@ void VL_PresentFullscreenRgba(
 	int fade_ticks)
 try {
 	g_video->present_fullscreen_rgba(src, width, height, fade_ticks);
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+void VL_SetLincBackground(const bstone::Rgba8* src, int width, int height)
+try {
+	g_video->set_linc_background(src, width, height);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void VL_FadeOutFullscreen(int fade_ticks)

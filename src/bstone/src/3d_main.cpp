@@ -9738,10 +9738,9 @@ void Quit()
 }
 
 #if BSTONE_TVOS
-// Loads a bundled custom 16:9 splash PNG (data_dir_ + rel_path), decodes it and
-// presents it full-screen with a fade-in. Returns false if the file is absent or
-// fails to decode, so the caller falls back to the original VGA pic.
-bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
+// Loads + decodes a bundled PNG (data_dir_ + rel_path) into rgba. Returns false
+// if the file is absent or fails to decode.
+bool TvosLoadPng(const char* rel_path, int& width, int& height, bstone::Rgba8Buffer& rgba)
 {
 	const auto path = data_dir_ + rel_path;
 
@@ -9771,9 +9770,9 @@ bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
 		return false;
 	}
 
-	auto width = 0;
-	auto height = 0;
-	auto rgba = bstone::Rgba8Buffer{};
+	width = 0;
+	height = 0;
+	rgba = bstone::Rgba8Buffer{};
 
 	try
 	{
@@ -9785,7 +9784,18 @@ bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
 		return false;
 	}
 
-	if (width <= 0 || height <= 0 || rgba.empty())
+	return width > 0 && height > 0 && !rgba.empty();
+}
+
+// Loads a bundled custom 16:9 splash PNG and presents it full-screen with a
+// fade-in. Returns false if absent/undecodable so the caller falls back.
+bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
+{
+	auto width = 0;
+	auto height = 0;
+	auto rgba = bstone::Rgba8Buffer{};
+
+	if (!TvosLoadPng(rel_path, width, height, rgba))
 	{
 		return false;
 	}
@@ -9793,6 +9803,46 @@ bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
 	VL_PresentFullscreenRgba(rgba.data(), width, height, fade_in_ticks);
 	return true;
 }
+
+// Uploads the LINC bezel background (linc.png) once. Silently does nothing if
+// the file is missing (the screens then fall back to a plain black bezel).
+void TvosEnsureLincBackground()
+{
+	static bool attempted = false;
+
+	if (attempted)
+	{
+		return;
+	}
+
+	attempted = true;
+
+	auto width = 0;
+	auto height = 0;
+	auto rgba = bstone::Rgba8Buffer{};
+
+	if (TvosLoadPng("linc.png", width, height, rgba))
+	{
+		VL_SetLincBackground(rgba.data(), width, height);
+	}
+}
+#endif // BSTONE_TVOS
+
+#if BSTONE_TVOS
+void TvosLincBegin()
+{
+	VW_BuildRustPalette();
+	TvosEnsureLincBackground();
+	vid_tvos_linc = true;
+}
+
+void TvosLincEnd()
+{
+	vid_tvos_linc = false;
+}
+#else
+void TvosLincBegin() {}
+void TvosLincEnd() {}
 #endif // BSTONE_TVOS
 
 void DemoLoop()
@@ -9955,19 +10005,23 @@ void DemoLoop()
 				//
 				// credits page
 				//
+				TvosLincBegin();
 				DrawCreditsPage();
 				VW_UpdateScreen();
 				VW_FadeIn();
 				if (IN_UserInput(TickBase * 6))
 				{
+					TvosLincEnd();
 					break;
 				}
 				VW_FadeOut();
+				TvosLincEnd();
 
 
 				//
 				// high scores
 				//
+				TvosLincBegin();
 				CA_CacheScreen(BACKGROUND_SCREENPIC);
 				DrawHighScores();
 				VW_UpdateScreen();
@@ -9975,9 +10029,11 @@ void DemoLoop()
 
 				if (IN_UserInput(TickBase * 9))
 				{
+					TvosLincEnd();
 					break;
 				}
 				VW_FadeOut();
+				TvosLincEnd();
 			}
 
 			vid_is_movie = false;
@@ -10074,6 +10130,22 @@ int main(
 	else
 	{
 		g_args.initialize(argc, argv);
+	}
+#elif BSTONE_TVOS
+	// tvOS: force full Aliens of Gold so the native content picker doesn't block
+	// at startup (the bundled .BS6 data is detectable as both AOG and AOG SW).
+	{
+		static char aog_arg[] = "--aog";
+		char* pargv[8];
+		int pargc = 0;
+
+		for (int i = 0; i < argc && pargc < 7; ++i)
+		{
+			pargv[pargc++] = argv[i];
+		}
+
+		pargv[pargc++] = aog_arg;
+		g_args.initialize(pargc, pargv);
 	}
 #else
 	g_args.initialize(argc, argv);

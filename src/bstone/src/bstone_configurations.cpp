@@ -13,7 +13,7 @@ extern const std::intptr_t win32_wstring_capacity = 16 * 1024;
 
 const std::intptr_t sys_max_gl_contexts = 1;
 const std::intptr_t sys_max_gl_shared_libraries = 1;
-const std::intptr_t sys_max_textures = 4; // screen + ui + tvOS full-screen splash (+ margin)
+const std::intptr_t sys_max_textures = 5; // screen + ui + tvOS splash + LINC bezel (+ margin)
 const std::intptr_t sys_max_texture_locks = 1;
 
 } // namespace bstone

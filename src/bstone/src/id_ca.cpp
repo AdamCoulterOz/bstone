@@ -32,6 +32,7 @@ loaded into the data segment
 #include "id_vh.h"
 #include "id_vl.h"
 #include "gfxv.h"
+#include "bstone_platform.h"
 
 #include "bstone_audio_content_mgr.h"
 #include "bstone_audio_extractor.h"
@@ -651,6 +652,17 @@ void CA_CacheScreen(
 	std::int32_t pos, compressed;
 	std::uint8_t* source;
 	std::int16_t next;
+
+#if BSTONE_TVOS
+	// tvOS LINC bezel: don't paint the opaque LINC backdrop into the UI buffer;
+	// clear the mask to transparent so only the foreground (text/cursor) drawn
+	// afterwards stays opaque over the new bezel art.
+	if (vid_tvos_linc && chunk == BACKGROUND_SCREENPIC)
+	{
+		vid_set_ui_mask(false);
+		return;
+	}
+#endif
 
 
 	//

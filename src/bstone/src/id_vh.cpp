@@ -363,9 +363,48 @@ void VW_WaitVBL(
 	VL_WaitVBL(vbls);
 }
 
+std::uint8_t vgapal_rust[768];
+
+void VW_BuildRustPalette()
+{
+	// Start from the stock palette, then remap the menu-text green ramp
+	// (0x50-0x5F) to a rust (#C8451E) ramp that preserves each entry's relative
+	// brightness: darker greens -> darker rust, the enabled tier -> exact rust,
+	// brighter greens -> lighter rust. Everything is 6-bit VGA (0..63).
+	for (int i = 0; i < 768; ++i)
+	{
+		vgapal_rust[i] = vgapal[i];
+	}
+
+	const int mid[3] = {49, 17, 7};    // #C8451E
+	const int light[3] = {59, 37, 27}; // light rust
+	const int f_mid = 41;              // green channel of ENABLED_TEXT_COLOR (0x56)
+
+	for (int i = 0x50; i <= 0x5F; ++i)
+	{
+		const int g = vgapal[(i * 3) + 1]; // green channel = brightness
+
+		for (int c = 0; c < 3; ++c)
+		{
+			int v;
+
+			if (g <= f_mid)
+			{
+				v = (mid[c] * g) / f_mid;
+			}
+			else
+			{
+				v = mid[c] + (((light[c] - mid[c]) * (g - f_mid)) / (63 - f_mid));
+			}
+
+			vgapal_rust[(i * 3) + c] = static_cast<std::uint8_t>(v);
+		}
+	}
+}
+
 void VW_FadeIn()
 {
-	VL_FadeIn(0, 255, vgapal, 30);
+	VL_FadeIn(0, 255, vid_tvos_linc ? vgapal_rust : vgapal, 30);
 }
 
 void VW_FadeOut()

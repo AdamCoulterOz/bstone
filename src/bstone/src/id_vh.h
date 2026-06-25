@@ -62,6 +62,12 @@ extern std::int16_t py;
 //
 extern const std::uint8_t vgapal[768];
 
+// tvOS: a copy of vgapal with the menu-text green ramp (indices 0x50-0x5F)
+// remapped to a rust (#C8451E) ramp. Built by VW_BuildRustPalette and used by
+// the fades while vid_tvos_linc is active.
+extern std::uint8_t vgapal_rust[768];
+void VW_BuildRustPalette();
+
 extern int latchpics[];
 
 extern int LatchMemFree;

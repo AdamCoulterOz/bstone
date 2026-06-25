@@ -186,6 +186,14 @@ extern bool vid_is_3d;
 // Is it intro/outro/you-win/etc?
 extern bool vid_is_movie;
 
+// tvOS: the front-end LINC bezel is showing (new full-screen bg + the UI is
+// letterboxed, transparent, into the screen cutout, recoloured to rust).
+extern bool vid_tvos_linc;
+
+// tvOS LINC: the UI palette index used for opaque menu/panel backgrounds, drawn
+// transparent under the bezel so only text/cursor/box show. 0xFF = none.
+extern std::uint8_t vid_linc_bg_index;
+
 extern bstone::SpriteCache vid_sprite_cache;
 
 extern double height_compensation_factor;
@@ -244,6 +252,15 @@ void VL_FadeOutFullscreen(int fade_ticks);
 // returns false if absent/undecodable so the caller falls back to the original pic.
 // Defined (tvOS only) in 3d_main.cpp; never referenced on non-tvOS builds.
 bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks);
+
+// tvOS LINC bezel: upload the full-screen bezel background (decoded RGBA8).
+void VL_SetLincBackground(const bstone::Rgba8* src, int width, int height);
+
+// tvOS: begin/end the front-end LINC bezel treatment around a menu / high-scores
+// / credits screen. Begin loads the bezel + rust palette and sets vid_tvos_linc;
+// end clears it. No-ops on non-tvOS builds. Defined in 3d_main.cpp.
+void TvosLincBegin();
+void TvosLincEnd();
 
 void VL_Plot(
 	int x,

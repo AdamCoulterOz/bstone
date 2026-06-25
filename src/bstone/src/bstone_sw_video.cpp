@@ -68,6 +68,7 @@ public:
 	void present_fullscreen_rgba(
 		const bstone::Rgba8* src, int width, int height, int fade_ticks) override;
 	void fade_out_fullscreen(int fade_ticks) override;
+	void set_linc_background(const bstone::Rgba8* src, int width, int height) override;
 
 	// HW
 	//
@@ -168,6 +169,10 @@ private:
 	std::array<sys::Rectangle, 4> filler_hud_rects_{};
 	sys::Rectangle screen_dst_rect_{};
 	sys::Color filler_color_{};
+	// tvOS LINC bezel: a full-screen RGBA background image + the screen-cutout
+	// rectangle the UI (menu / high-scores / credits) is letterboxed into.
+	sys::TextureUPtr background_texture_{};
+	sys::Rectangle ui_linc_dst_rect_{};
 
 
 	// HW
@@ -321,14 +326,23 @@ try {
 			for (auto x = decltype(vga_ref_width){}; x < vga_ref_width; ++x)
 			{
 				const auto src_offset = src_line_offset + x;
-				auto dst_color = palette_[vid_ui_buffer_[src_offset]];
+				const auto src_index = vid_ui_buffer_[src_offset];
+				auto dst_color = palette_[src_index];
 
-				if (vid_is_hud)
+				if (vid_is_hud || vid_tvos_linc)
 				{
 					if (!vid_mask_buffer_[src_offset])
 					{
 						dst_color &= alpha_0_mask;
 					}
+				}
+
+				// tvOS LINC: the menu's opaque panel-background index is drawn
+				// transparent so only text / cursor / selection box show over
+				// the bezel art.
+				if (vid_tvos_linc && src_index == vid_linc_bg_index)
+				{
+					dst_color &= alpha_0_mask;
 				}
 
 				dst_line[x] = dst_color;
@@ -344,6 +358,14 @@ try {
 	renderer_->set_draw_color(opaque_black);
 	renderer_->clear();
 
+	// tvOS: draw the full-screen LINC bezel background underneath the UI.
+	//
+	if (vid_tvos_linc && background_texture_ != nullptr)
+	{
+		background_texture_->set_blend_mode(sys::TextureBlendMode::none);
+		copy_texture_to_rendering_target(*background_texture_, nullptr, nullptr);
+	}
+
 	// Copy HUD+3D stuff
 	//
 	if (vid_is_hud)
@@ -353,7 +375,7 @@ try {
 
 	// Copy 2D stuff
 	//
-	if (vid_is_hud)
+	if (vid_is_hud || vid_tvos_linc)
 	{
 		enable_texture_blending(*ui_texture_, true);
 	}
@@ -365,8 +387,11 @@ try {
 	const auto is_middle_wide = (vid_is_hud && is_widescreen) || (!vid_is_hud && is_stretched);
 	const auto is_bottom_wide = is_stretched;
 
-	if (false)
-	{}
+	if (vid_tvos_linc)
+	{
+		// tvOS: letterbox the entire UI into the LINC screen cutout.
+		copy_texture_to_rendering_target(*ui_texture_, nullptr, &ui_linc_dst_rect_);
+	}
 	else if (is_top_wide && is_middle_wide && is_bottom_wide)
 	{
 		copy_texture_to_rendering_target(*ui_texture_, nullptr, &ui_wide_dst_rect_);
@@ -386,14 +411,14 @@ try {
 		copy_texture_to_rendering_target(*ui_texture_, &ui_bottom_src_rect_, &dst_bottom_rect);
 	}
 
-	if (vid_is_hud)
+	if (vid_is_hud || vid_tvos_linc)
 	{
 		enable_texture_blending(*ui_texture_, false);
 	}
 
-	// Use filler if necessary
+	// Use filler if necessary (the tvOS LINC bezel already covers the screen).
 	//
-	if (!vid_cfg_is_ui_stretched())
+	if (!vid_cfg_is_ui_stretched() && !vid_tvos_linc)
 	{
 		const auto is_hud = vid_is_hud;
 
@@ -612,6 +637,44 @@ try {
 	}
 
 	screenfaded = false;
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+void SwVideo::set_linc_background(const bstone::Rgba8* src, int width, int height)
+try {
+	if (src == nullptr || width <= 0 || height <= 0)
+	{
+		return;
+	}
+
+	auto texture_param = sys::TextureInitParam{};
+	texture_param.pixel_format = sys::PixelFormat::b8g8r8a8;
+	texture_param.access = sys::TextureAccess::streaming;
+	texture_param.width = width;
+	texture_param.height = height;
+
+	background_texture_ = nullptr;
+	background_texture_ = renderer_->make_texture(texture_param);
+
+	const auto texture_lock = background_texture_->make_lock();
+	const auto dst_pixels = texture_lock->get_pixels<std::uint32_t*>();
+	const auto dst_pitch = texture_lock->get_pitch() / 4;
+
+	for (auto y = 0; y < height; ++y)
+	{
+		auto dst_line = &dst_pixels[y * dst_pitch];
+		const auto src_line = &src[y * width];
+
+		for (auto x = 0; x < width; ++x)
+		{
+			const auto& p = src_line[x];
+
+			dst_line[x] =
+				(static_cast<std::uint32_t>(p.a_) << 24) |
+				(static_cast<std::uint32_t>(p.r_) << 16) |
+				(static_cast<std::uint32_t>(p.g_) << 8) |
+				static_cast<std::uint32_t>(p.b_);
+		}
+	}
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::present_fullscreen_rgba(
@@ -947,6 +1010,23 @@ void SwVideo::calculate_dimensions()
 		vid_layout_.screen_width_4x3,
 		vid_layout_.screen_height,
 	};
+
+	// tvOS LINC screen cutout: stretch the 320x200 UI to fill the dark monitor
+	// region of the bezel art (linc.png), pinned to its measured pixel bounds.
+	// The fill uses all the screen space (the concept art fills the monitor edge
+	// to edge); the slight vertical stretch lands near the VGA's intended 4:3.
+	{
+		const auto win_w = vid_layout_.window_width;
+		const auto win_h = vid_layout_.window_height;
+
+		ui_linc_dst_rect_ = sys::Rectangle
+		{
+			static_cast<int>(0.095 * win_w),
+			static_cast<int>(0.121 * win_h),
+			static_cast<int>(0.492 * win_w),
+			static_cast<int>(0.729 * win_h),
+		};
+	}
 
 	// UI stretched rect
 	//
