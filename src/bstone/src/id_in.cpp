@@ -847,13 +847,17 @@ void in_handle_gamepad_button(const bstone::sys::GamepadButtonEvent& e)
 		case Gb::left_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;    // run (L3)
 		case Gb::right_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;   // run (R3)
 		case Gb::left_shoulder: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break; // run (LB)
+		case Gb::right_shoulder:
+			in_gc_set_key(ScanCode::sc_space, is_pressed); // use / confirm (same as A)
+			in_gc_set_key(ScanCode::sc_y, is_pressed);
+			break;
 
 		case Gb::dpad_left: in_gc_set_key(ScanCode::sc_q, is_pressed); in_gc_dpad_left = is_pressed; break;     // prev weapon
 		case Gb::dpad_right: in_gc_set_key(ScanCode::sc_e, is_pressed); in_gc_dpad_right = is_pressed; break;   // next weapon
 		case Gb::dpad_up: in_gc_set_key(ScanCode::sc_equals, is_pressed); in_gc_dpad_up = is_pressed; break;    // radar magnify
 		case Gb::dpad_down: in_gc_set_key(ScanCode::sc_minus, is_pressed); in_gc_dpad_down = is_pressed; break; // radar minify
 
-		default: break; // x, right_shoulder (RB), guide: unbound for now
+		default: break; // x, guide: unbound for now
 	}
 }
 

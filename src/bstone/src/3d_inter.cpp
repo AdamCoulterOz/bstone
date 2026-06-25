@@ -43,11 +43,15 @@ bool Breifing(
 	breifing_type BreifingType,
 	std::uint16_t episode)
 {
+	vid_linc_briefing = true; // tvOS: blink the bezel light (no-op on other platforms)
+
 	HelpPresenter(
 		nullptr,
 		true,
 		static_cast<std::uint16_t>(BRIEF_W1 + (episode * 2) + BreifingType - 1),
 		false);
+
+	vid_linc_briefing = false;
 
 	return EscPressed;
 }

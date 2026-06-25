@@ -41,7 +41,6 @@ extern std::int16_t TEXTSONG;
 enum mm_labels
 {
 	MM_NEW_MISSION,
-	MM_ORDERING_INFO,
 	MM_READ_THIS,
 	MM_BLAKE_STONE_SAGA,
 	MM_BLANK1,

@@ -408,7 +408,7 @@ extern bool refresh_screen;
 //
 // ===========================================================================
 
-CP_iteminfo MainItems = {MENU_X, MENU_Y, 12, MM_NEW_MISSION, 0, 9, {77, 1, 154, 9, 1}};
+CP_iteminfo MainItems = {MENU_X, MENU_Y, 11, MM_NEW_MISSION, 0, 9, {77, 1, 154, 9, 1}};
 CP_iteminfo GopItems = {MENU_X, MENU_Y + 25, 6, 0, 0, 9, {77, 1, 154, 9, 1}};
 CP_iteminfo SndItems = {SM_X, SM_Y, 6, 0, 0, 8, {87, -1, 144, 7, 1}};
 CP_iteminfo LSItems = {LSM_X, LSM_Y, 10, 0, 0, 8, {86, -1, 144, 8, 1}};
@@ -428,7 +428,6 @@ CP_iteminfo switches2_items = {MENU_X, MENU_Y + 30, 5, 0, 0, 9, {87, -1, 132, 7,
 
 CP_itemtype MainMenu[] = {
 	{AT_ENABLED, "NEW MISSION", CP_NewGame, static_cast<std::uint8_t>(COAL_FONT())},
-	{AT_READIT, "ORDERING INFO", CP_OrderingInfo},
 	{AT_READIT, "INSTRUCTIONS", CP_ReadThis},
 	{AT_ENABLED, "STORY", CP_BlakeStoneSaga},
 	{AT_DISABLED, "", nullptr},
@@ -1692,14 +1691,17 @@ void HelpPresenter(
 		NewViewSize();
 	}
 
-	// Draw help border
+	// Draw help border (the tvOS LINC bezel provides its own screen frame).
 	//
-	CacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
-	VWB_DrawPic(0, 0, H_TOPWINDOWPIC);
-	VWB_DrawPic(0, 8, H_LEFTWINDOWPIC);
-	VWB_DrawPic(312, 8, H_RIGHTWINDOWPIC);
-	VWB_DrawPic(8, 176, H_BOTTOMINFOPIC);
-	UnCacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
+	if (!vid_tvos_linc)
+	{
+		CacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
+		VWB_DrawPic(0, 0, H_TOPWINDOWPIC);
+		VWB_DrawPic(0, 8, H_LEFTWINDOWPIC);
+		VWB_DrawPic(312, 8, H_RIGHTWINDOWPIC);
+		VWB_DrawPic(8, 176, H_BOTTOMINFOPIC);
+		UnCacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
+	}
 
 	// Setup for text presenter
 	//
@@ -1720,6 +1722,20 @@ void HelpPresenter(
 	else
 	{
 		pi.infoline = (char*)"           UP / DN - PAGES            ESC - EXITS";
+	}
+
+	if (vid_tvos_linc)
+	{
+		// tvOS LINC: render the briefing directly on the bezel screen. Rust text,
+		// no fake border. Point bgcolor at the keyed menu-background index so the
+		// presenter's background fills (initial + per-page) go transparent and
+		// overwrite the previous screen so it no longer shows through. An empty
+		// infoline drops the key-hint text but keeps the page number bottom-right.
+		pi.bgcolor = menu_background_color;
+		pi.ltcolor = HIGHLIGHT_TEXT_COLOR;
+		pi.dkcolor = DISABLED_TEXT_COLOR;
+		pi.shcolor = TERM_SHADOW_COLOR;
+		pi.infoline = (char*)"";
 	}
 
 	if (startmusic)
@@ -1775,11 +1791,12 @@ void US_ControlPanel(
 	// tvOS: front-end menus get the LINC bezel (the in-game menu keeps the paused
 	// 3D view behind it). The opaque panel-background colour is keyed transparent
 	// so only text / cursor / selection box show over the bezel.
-	const auto linc_active = !ingame;
+	const auto linc_active = true; // tvOS: bezel on all menus (front-end + in-game pause)
 
 	if (linc_active)
 	{
 		vid_linc_bg_index = menu_background_color;
+		vid_linc_ingame = ingame; // amber light in-game, green on the front-end
 		TvosLincBegin();
 	}
 
@@ -1789,6 +1806,7 @@ void US_ControlPanel(
 			if (linc_active)
 			{
 				vid_linc_bg_index = 0xFF;
+				vid_linc_ingame = false;
 				TvosLincEnd();
 			}
 		});
@@ -1879,6 +1897,18 @@ void US_ControlPanel(
 
 		case -1:
 			// on hit ESC on main menu
+#if BSTONE_TVOS
+			// tvOS: Menu/Back closes the pause menu and resumes the game; only the
+			// front-end menu's Escape quits/logs off.
+			if (ingame)
+			{
+				StartGame = 1;
+			}
+			else
+			{
+				CP_Quit();
+			}
+#else
 			if (ingame && !gp_quit_on_escape())
 			{
 				// return to game if quit on escape not enabled
@@ -1888,6 +1918,7 @@ void US_ControlPanel(
 			{
 				CP_Quit();
 			}
+#endif
 			break;
 
 		case MM_LOGOFF:
@@ -2329,6 +2360,11 @@ const std::int16_t INSTRUCTIONS_Y_POS = 154 + 10;
 void DrawInstructions(
 	inst_type Type)
 {
+#if BSTONE_TVOS
+	// No keyboard on Apple TV: don't draw the key-binding hint line.
+	static_cast<void>(Type);
+	return;
+#endif
 	const char* instr[MAX_INSTRUCTIONS] = {
 		"UP/DN SELECTS - ENTER CHOOSES - ESC EXITS",
 		"PRESS ANY KEY TO CONTINUE",

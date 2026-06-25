@@ -194,6 +194,18 @@ extern bool vid_tvos_linc;
 // transparent under the bezel so only text/cursor/box show. 0xFF = none.
 extern std::uint8_t vid_linc_bg_index;
 
+// tvOS LINC: while set, the text presenter (mission briefing / credits) draws its
+// background fills transparently — they still clear the previous screen/page but
+// render invisible so the text sits directly on the bezel.
+extern bool vid_linc_tp_transparent;
+
+// tvOS LINC: set while a mission briefing is on screen (red context light).
+extern bool vid_linc_briefing;
+
+// tvOS LINC: set while an in-game (paused) menu is on screen vs the front-end, to
+// pick the amber context light instead of green.
+extern bool vid_linc_ingame;
+
 extern bstone::SpriteCache vid_sprite_cache;
 
 extern double height_compensation_factor;
@@ -253,8 +265,18 @@ void VL_FadeOutFullscreen(int fade_ticks);
 // Defined (tvOS only) in 3d_main.cpp; never referenced on non-tvOS builds.
 bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks);
 
-// tvOS LINC bezel: upload the full-screen bezel background (decoded RGBA8).
-void VL_SetLincBackground(const bstone::Rgba8* src, int width, int height);
+// tvOS LINC bezel layers (full-screen RGBA8): two background skins + three lights.
+enum
+{
+	vid_linc_closed,      // default bezel
+	vid_linc_open,        // briefing bezel (reveals the second screen)
+	vid_linc_light_red,   // briefing alert
+	vid_linc_light_green, // front-end idle
+	vid_linc_light_amber, // in-game
+	vid_linc_layer_count
+};
+
+void VL_SetLincLayer(int layer, const bstone::Rgba8* src, int width, int height);
 
 // tvOS: begin/end the front-end LINC bezel treatment around a menu / high-scores
 // / credits screen. Begin loads the bezel + rust palette and sets vid_tvos_linc;

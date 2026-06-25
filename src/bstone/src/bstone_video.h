@@ -99,10 +99,11 @@ public:
 		static_cast<void>(fade_ticks);
 	}
 
-	// tvOS: upload the LINC bezel background (decoded RGBA8) to be drawn
-	// full-screen behind the UI while vid_tvos_linc is active. No-op default.
-	virtual void set_linc_background(const bstone::Rgba8* src, int width, int height)
+	// tvOS LINC bezel layers (background skins + lights), uploaded as full-screen
+	// RGBA8. layer is a vid_linc_* index. No-op default (software backend only).
+	virtual void set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height)
 	{
+		static_cast<void>(layer);
 		static_cast<void>(src);
 		static_cast<void>(width);
 		static_cast<void>(height);

@@ -1971,6 +1971,7 @@ void TP_Presenter(
 	PresenterInfo* pinfo)
 {
 	pi = pinfo;
+	vid_linc_tp_transparent = vid_tvos_linc; // tvOS: bars clear the area but render transparent
 	bgcolor = pi->bgcolor;
 	ltcolor = pi->ltcolor;
 	dkcolor = pi->dkcolor;
@@ -2036,7 +2037,7 @@ void TP_Presenter(
 		if (pi->flags & TPF_SHOW_PAGES)
 		{
 			px = 246;
-			py = 190;
+			py = vid_tvos_linc ? 182 : 190; // tvOS: 1 row up so it's not clipped by the bezel screen
 			ShPrint("PAGE ", static_cast<std::int8_t>(shcolor), false);
 			pagex[0] = px;
 			pagey[0] = py;
@@ -2054,6 +2055,8 @@ void TP_Presenter(
 	font = (fontstruct*)grsegs[STARTFONT + fontnumber].data();
 	if (!(pi->flags & TPF_USE_CURRENT))
 	{
+		// On tvOS bgcolor is the keyed menu-background index, so this fill both
+		// clears the previous screen and renders transparent under the bezel.
 		VWB_Bar(xl - TP_MARGIN, yl - TP_MARGIN, xh - xl + 1 + (TP_MARGIN * 2), yh - yl + 1 + (TP_MARGIN * 2), static_cast<std::uint8_t>(bgcolor));
 	}
 
@@ -2098,6 +2101,8 @@ void TP_Presenter(
 
 	pi->cur_x = cur_x;
 	pi->cur_y = cur_y;
+
+	vid_linc_tp_transparent = false;
 }
 
 void TP_WrapText()

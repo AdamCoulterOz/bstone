@@ -349,6 +349,9 @@ bool vid_is_3d = false;
 bool vid_is_movie = false;
 bool vid_tvos_linc = false; // tvOS: front-end LINC bezel + transparent UI cutout
 std::uint8_t vid_linc_bg_index = 0xFF; // tvOS LINC: UI index drawn transparent (menu panel bg); 0xFF = none
+bool vid_linc_tp_transparent = false;  // tvOS LINC: force text-presenter background bars transparent
+bool vid_linc_briefing = false;        // tvOS LINC: a mission briefing is showing (red light)
+bool vid_linc_ingame = false;          // tvOS LINC: an in-game (paused) menu is showing (amber light)
 
 bstone::SpriteCache vid_sprite_cache;
 
@@ -1502,9 +1505,9 @@ try {
 	g_video->present_fullscreen_rgba(src, width, height, fade_ticks);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
-void VL_SetLincBackground(const bstone::Rgba8* src, int width, int height)
+void VL_SetLincLayer(int layer, const bstone::Rgba8* src, int width, int height)
 try {
-	g_video->set_linc_background(src, width, height);
+	g_video->set_linc_layer(layer, src, width, height);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void VL_FadeOutFullscreen(int fade_ticks)

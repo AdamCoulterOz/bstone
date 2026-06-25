@@ -68,7 +68,7 @@ public:
 	void present_fullscreen_rgba(
 		const bstone::Rgba8* src, int width, int height, int fade_ticks) override;
 	void fade_out_fullscreen(int fade_ticks) override;
-	void set_linc_background(const bstone::Rgba8* src, int width, int height) override;
+	void set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height) override;
 
 	// HW
 	//
@@ -171,8 +171,9 @@ private:
 	sys::Color filler_color_{};
 	// tvOS LINC bezel: a full-screen RGBA background image + the screen-cutout
 	// rectangle the UI (menu / high-scores / credits) is letterboxed into.
-	sys::TextureUPtr background_texture_{};
+	std::array<sys::TextureUPtr, vid_linc_layer_count> linc_layers_{}; // tvOS: bezel skins + lights
 	sys::Rectangle ui_linc_dst_rect_{};
+	int linc_blink_{}; // tvOS: context-light pulse counter
 
 
 	// HW
@@ -358,12 +359,18 @@ try {
 	renderer_->set_draw_color(opaque_black);
 	renderer_->clear();
 
-	// tvOS: draw the full-screen LINC bezel background underneath the UI.
+	// tvOS: draw the LINC bezel underneath the UI — the open (second-screen) skin
+	// during a mission briefing, the closed skin otherwise.
 	//
-	if (vid_tvos_linc && background_texture_ != nullptr)
+	if (vid_tvos_linc)
 	{
-		background_texture_->set_blend_mode(sys::TextureBlendMode::none);
-		copy_texture_to_rendering_target(*background_texture_, nullptr, nullptr);
+		auto& bezel = linc_layers_[vid_linc_briefing ? vid_linc_open : vid_linc_closed];
+
+		if (bezel != nullptr)
+		{
+			bezel->set_blend_mode(sys::TextureBlendMode::none);
+			copy_texture_to_rendering_target(*bezel, nullptr, nullptr);
+		}
 	}
 
 	// Copy HUD+3D stuff
@@ -414,6 +421,42 @@ try {
 	if (vid_is_hud || vid_tvos_linc)
 	{
 		enable_texture_blending(*ui_texture_, false);
+	}
+
+	// tvOS: a context light glows over the bezel — red (pulsing alert) during a
+	// briefing, amber (steady) on the in-game pause menu, green (steady) on the
+	// front-end. Each light is its own overlay (transparent except the lit light).
+	if (vid_tvos_linc)
+	{
+		auto light_index = vid_linc_light_green;
+		auto alpha = static_cast<std::uint8_t>(255);
+
+		if (vid_linc_briefing)
+		{
+			light_index = vid_linc_light_red;
+
+			// Subtle breathing pulse: ease alpha 0 -> full -> 0 (smoothstep).
+			linc_blink_ += 1;
+			const auto period = 160; // frames per full cycle (~2.3 s); larger = slower
+			const auto half = period / 2;
+			const auto t = linc_blink_ % period;
+			const auto tri = static_cast<double>(t < half ? t : (period - t)) / half;
+			const auto eased = tri * tri * (3.0 - (2.0 * tri));
+			alpha = static_cast<std::uint8_t>(eased * 255.0);
+		}
+		else if (vid_linc_ingame)
+		{
+			light_index = vid_linc_light_amber;
+		}
+
+		auto& light = linc_layers_[light_index];
+
+		if (light != nullptr)
+		{
+			light->set_blend_mode(sys::TextureBlendMode::blend);
+			light->set_alpha_mod(alpha);
+			copy_texture_to_rendering_target(*light, nullptr, nullptr);
+		}
 	}
 
 	// Use filler if necessary (the tvOS LINC bezel already covers the screen).
@@ -639,9 +682,10 @@ try {
 	screenfaded = false;
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
-void SwVideo::set_linc_background(const bstone::Rgba8* src, int width, int height)
+void SwVideo::set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height)
 try {
-	if (src == nullptr || width <= 0 || height <= 0)
+	if (layer < 0 || layer >= vid_linc_layer_count ||
+		src == nullptr || width <= 0 || height <= 0)
 	{
 		return;
 	}
@@ -652,10 +696,11 @@ try {
 	texture_param.width = width;
 	texture_param.height = height;
 
-	background_texture_ = nullptr;
-	background_texture_ = renderer_->make_texture(texture_param);
+	auto& texture = linc_layers_[layer];
+	texture = nullptr;
+	texture = renderer_->make_texture(texture_param);
 
-	const auto texture_lock = background_texture_->make_lock();
+	const auto texture_lock = texture->make_lock();
 	const auto dst_pixels = texture_lock->get_pixels<std::uint32_t*>();
 	const auto dst_pitch = texture_lock->get_pitch() / 4;
 
@@ -1021,10 +1066,10 @@ void SwVideo::calculate_dimensions()
 
 		ui_linc_dst_rect_ = sys::Rectangle
 		{
-			static_cast<int>(0.095 * win_w),
-			static_cast<int>(0.121 * win_h),
-			static_cast<int>(0.492 * win_w),
-			static_cast<int>(0.729 * win_h),
+			static_cast<int>(0.1017 * win_w), // main screen: x=170 of 1672
+			static_cast<int>(0.1318 * win_h), // y=124 of 941
+			static_cast<int>(0.4779 * win_w), // w=799
+			static_cast<int>(0.6833 * win_h), // h=643
 		};
 	}
 

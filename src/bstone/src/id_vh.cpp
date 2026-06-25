@@ -327,7 +327,7 @@ void VW_Bar(
 	std::uint8_t color,
 	const bool is_transparent)
 {
-	VL_Bar(x, y, width, height, color, is_transparent);
+	VL_Bar(x, y, width, height, color, is_transparent || vid_linc_tp_transparent);
 }
 
 void VW_Plot(

@@ -9821,9 +9821,23 @@ void TvosEnsureLincBackground()
 	auto height = 0;
 	auto rgba = bstone::Rgba8Buffer{};
 
-	if (TvosLoadPng("linc.png", width, height, rgba))
+	struct LincLayerFile { const char* file; int layer; };
+
+	static const LincLayerFile linc_files[] =
 	{
-		VL_SetLincBackground(rgba.data(), width, height);
+		{"linc-closed.png", vid_linc_closed},
+		{"linc-open.png", vid_linc_open},
+		{"linc-light-red.png", vid_linc_light_red},
+		{"linc-light-green.png", vid_linc_light_green},
+		{"linc-light-amber.png", vid_linc_light_amber},
+	};
+
+	for (const auto& lf : linc_files)
+	{
+		if (TvosLoadPng(lf.file, width, height, rgba))
+		{
+			VL_SetLincLayer(lf.layer, rgba.data(), width, height);
+		}
 	}
 }
 #endif // BSTONE_TVOS
