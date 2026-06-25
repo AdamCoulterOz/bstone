@@ -447,8 +447,10 @@ try {
 			const auto dst = lock->get_pixels<std::uint32_t*>();
 			const auto pitch = lock->get_pitch() / 4;
 
-			// True (non-rust) palette so the images keep their own colours; only
-			// the image's bounds need converting.
+			// Render through the LIVE palette (palette_) so palette-cycled lights on
+			// the briefing target base actually blink (CycleColors cycles 0xF0-0xFE).
+			// Only the rust-remapped menu ramp (0x50-0x5F) is pinned to its true
+			// colours, so the images themselves are never rust-tinted.
 			for (auto y = 0; y < vid_linc_2nd_h; ++y)
 			{
 				auto line = &dst[y * pitch];
@@ -456,7 +458,11 @@ try {
 
 				for (auto x = 0; x < vid_linc_2nd_w; ++x)
 				{
-					line[x] = linc_true_palette_[vid_linc_2nd_buffer_[src + x]] | 0xFF000000U;
+					const auto idx = vid_linc_2nd_buffer_[src + x];
+					const auto color = (idx >= 0x50 && idx <= 0x5F)
+						? linc_true_palette_[idx]
+						: palette_[idx];
+					line[x] = color | 0xFF000000U;
 				}
 			}
 		}

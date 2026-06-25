@@ -3069,6 +3069,67 @@ std::int16_t TP_DrawShape(
 		break;
 	}
 
+	// tvOS: during a mission briefing, redirect the target-base graphic onto the
+	// LINC bezel's second screen instead of the main text area. It's drawn at the
+	// buffer origin so the backend scales it to fill the screen, and (because the
+	// second buffer is separate from the text area) it persists across page-downs
+	// rather than vanishing. Static ^SH, the ^AN first frame, and every
+	// TP_AnimatePage frame all funnel through here, so the animation plays too.
+	// (Runtime vid_tvos_linc gate, matching this file's other tvOS code — jm_tp.cpp
+	// is not in bstone_platform.h's include chain, so #if BSTONE_TVOS would be 0.)
+	if (vid_tvos_linc && vid_linc_second_active && vid_linc_briefing)
+	{
+		std::int16_t pw, ph;
+
+		if (shapetype == pis_scaled || shapetype == pis_scwall)
+		{
+			pw = 64;
+			ph = 64;
+		}
+		else
+		{
+			pw = pictable[shapenum - STARTPICS].width;
+			ph = pictable[shapenum - STARTPICS].height;
+		}
+
+		vid_linc_2nd_w = pw;
+		vid_linc_2nd_h = ph;
+		vid_linc_2nd_begin();
+
+		switch (shapetype)
+		{
+		case pis_scwall:
+			TP_CacheIn(ct_scaled, 0);
+			addr = const_cast<std::uint8_t*>(bstone::globals::page_mgr->get(shapenum));
+			draw_wall_ui(0, 0, addr);
+			break;
+
+		case pis_scaled:
+			TP_CacheIn(ct_scaled, 0);
+			if (flags & fl_clearscback)
+			{
+				VWB_Bar(0, 0, 64, 64, static_cast<std::uint8_t>(bgcolor));
+			}
+			vid_draw_ui_sprite(shapenum, 32, 32, bstone::Sprite::dimension);
+			break;
+
+		case pis_latchpic:
+			LatchDrawPic(0, 0, shapenum);
+			break;
+
+		case pis_pic:
+			VWB_DrawPic(0, 0, shapenum);
+			break;
+
+		default:
+			break;
+		}
+
+		vid_linc_2nd_end();
+		cur_x += pw;
+		return x;
+	}
+
 	// Get width of shape (also, draws a box/shadow, if needed)
 	//
 	width = TP_BoxAroundShape(x, y, shapenum, shapetype);
