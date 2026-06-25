@@ -240,6 +240,11 @@ void VL_PresentFullscreenRgba(
 
 void VL_FadeOutFullscreen(int fade_ticks);
 
+// Loads + presents a bundled custom 16:9 splash PNG (data_dir_ + name) full-screen;
+// returns false if absent/undecodable so the caller falls back to the original pic.
+// Defined (tvOS only) in 3d_main.cpp; never referenced on non-tvOS builds.
+bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks);
+
 void VL_Plot(
 	int x,
 	int y,

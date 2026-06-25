@@ -27,6 +27,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_us.h"
 #include "id_vh.h"
 #include "id_vl.h"
+#include "bstone_platform.h"
 #include "3d_menu.h"
 #include "gfxv.h"
 
@@ -1091,27 +1092,32 @@ void PreDemo()
 	// Apogee presents
 	// ---------------------
 
-	// Cache pic
-	//
-	CA_CacheScreen(APOGEEPIC);
+	bool custom_apogee = false;
+#if BSTONE_TVOS
+	custom_apogee = TryShowCustomSplash("apogee.png", 30);
+#endif
 
 	sd_start_music(APOGFNFM_MUS, false);
 
-	// Cache and set palette.  AND  Fade it in!
-	//
-	CA_CacheGrChunk(APOGEEPALETTE);
-	VL_SetPalette(0, 256, grsegs[APOGEEPALETTE].data());
-	VL_SetPaletteIntensity(grsegs[APOGEEPALETTE].data(), 0);
-	VW_UpdateScreen();
-	if (assets_info.is_aog())
+	if (!custom_apogee)
 	{
-		VL_FadeOut(0, 255, 0, 0, 0, 20);
+		// Cache pic + palette and fade it in.
+		//
+		CA_CacheScreen(APOGEEPIC);
+		CA_CacheGrChunk(APOGEEPALETTE);
+		VL_SetPalette(0, 256, grsegs[APOGEEPALETTE].data());
+		VL_SetPaletteIntensity(grsegs[APOGEEPALETTE].data(), 0);
+		VW_UpdateScreen();
+		if (assets_info.is_aog())
+		{
+			VL_FadeOut(0, 255, 0, 0, 0, 20);
+		}
+		else
+		{
+			VL_FadeOut(0, 255, 25, 29, 53, 20);
+		}
+		VL_FadeIn(0, 255, grsegs[APOGEEPALETTE].data(), 30);
 	}
-	else
-	{
-		VL_FadeOut(0, 255, 25, 29, 53, 20);
-	}
-	VL_FadeIn(0, 255, grsegs[APOGEEPALETTE].data(), 30);
 
 	// Wait for end of fanfare
 	//
@@ -1131,10 +1137,20 @@ void PreDemo()
 
 	sd_music_off();
 
+	if (!custom_apogee)
+	{
+		UNCACHEGRCHUNK(APOGEEPALETTE);
+	}
+
 	// Free palette and music.  AND  Restore palette
 	//
-	UNCACHEGRCHUNK(APOGEEPALETTE);
-
+#if BSTONE_TVOS
+	if (custom_apogee)
+	{
+		VL_FadeOutFullscreen(30);
+	}
+	else
+#endif
 	if (assets_info.is_ps())
 	{
 		// Do A Blue Flash!
@@ -1155,9 +1171,20 @@ void PreDemo()
 
 	IN_ClearKeysDown();
 
+	bool custom_jam = false;
+#if BSTONE_TVOS
+	// tvOS: a static 16:9 JAM image replaces the IANIM movie when bundled.
+	custom_jam = TryShowCustomSplash("jam.png", 30);
+	if (custom_jam)
+	{
+		IN_UserInput(TickBase * 6);
+		VL_FadeOutFullscreen(30);
+	}
+#endif
+
 	// Show JAM logo
 	//
-	if (!DoMovie(MovieId::intro))
+	if (!custom_jam && !DoMovie(MovieId::intro))
 	{
 		BSTONE_THROW_STATIC_SOURCE("JAM animation (IANIM.xxx) does not exist.");
 	}
@@ -1165,24 +1192,40 @@ void PreDemo()
 	// ---------------------
 	// PC-13
 	// ---------------------
-	VL_Bar(0, 0, 320, 200, 0x14);
-	CacheDrawPic(0, 64, PC13PIC);
-	VW_UpdateScreen();
-	VW_FadeIn();
+	bool custom_pc13 = false;
+#if BSTONE_TVOS
+	custom_pc13 = TryShowCustomSplash("pc13.png", 30);
+#endif
+	if (!custom_pc13)
+	{
+		VL_Bar(0, 0, 320, 200, 0x14);
+		CacheDrawPic(0, 64, PC13PIC);
+		VW_UpdateScreen();
+		VW_FadeIn();
+	}
+
 	IN_UserInput(TickBase * 2);
 
 	// Do A Red Flash!
-
-	if (assets_info.is_aog())
+#if BSTONE_TVOS
+	if (custom_pc13)
 	{
-		VL_FadeOut(0, 255, 39, 0, 0, 20);
+		VL_FadeOutFullscreen(30);
 	}
 	else
+#endif
 	{
-		VL_FadeOut(0, 255, 0, 0, 0, 20);
-	}
+		if (assets_info.is_aog())
+		{
+			VL_FadeOut(0, 255, 39, 0, 0, 20);
+		}
+		else
+		{
+			VL_FadeOut(0, 255, 0, 0, 0, 20);
+		}
 
-	VW_FadeOut();
+		VW_FadeOut();
+	}
 
 	vid_is_movie = false;
 }
