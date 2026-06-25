@@ -52,6 +52,7 @@ private:
 
 private:
 	void do_set_blend_mode(TextureBlendMode mode) override;
+	void do_set_alpha_mod(std::uint8_t alpha) override;
 	void do_copy(const Rectangle* texture_rect, const Rectangle* target_rect) override;
 
 	TextureLockUPtr do_make_lock(const Rectangle* rect) override;
@@ -102,6 +103,11 @@ void Sdl2Texture::do_set_blend_mode(TextureBlendMode blend_mode)
 try {
 	const auto sdl_blend_mode = map_blend_mode(blend_mode);
 	sdl2_ensure_result(SDL_SetTextureBlendMode(sdl_texture_.get(), sdl_blend_mode));
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+void Sdl2Texture::do_set_alpha_mod(std::uint8_t alpha)
+try {
+	sdl2_ensure_result(SDL_SetTextureAlphaMod(sdl_texture_.get(), alpha));
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void Sdl2Texture::do_copy(const Rectangle* texture_rect, const Rectangle* target_rect)

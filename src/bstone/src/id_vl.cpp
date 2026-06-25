@@ -1491,6 +1491,20 @@ try {
 	g_video->fade_in(start, end, palette, steps);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
+void VL_PresentFullscreenRgba(
+	const bstone::Rgba8* src,
+	int width,
+	int height,
+	int fade_ticks)
+try {
+	g_video->present_fullscreen_rgba(src, width, height, fade_ticks);
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+void VL_FadeOutFullscreen(int fade_ticks)
+try {
+	g_video->fade_out_fullscreen(fade_ticks);
+} BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
 void VL_SetPaletteIntensity(const std::uint8_t* palette, int intensity)
 try {
 	auto new_palette = VgaPalette{};

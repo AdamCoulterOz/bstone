@@ -245,6 +245,19 @@ if (CMAKE_SYSTEM_NAME STREQUAL "tvOS")
 	else ()
 		message(WARNING "[bstone] tvOS: no game data in ${CMAKE_SOURCE_DIR}/data/ — the app will build but show \"Content not found\". Run ./fetch-data.sh.")
 	endif ()
+
+	# Custom full-screen 16:9 splash PNGs (title.png, etc.) bundled flat into
+	# Resources, where data_dir_ + "<name>.png" resolves at runtime (see
+	# TryShowCustomSplash in 3d_main.cpp). Absent files fall back to the original pic.
+	file(GLOB BSTONE_TVOS_SPLASH_FILES "${PROJECT_SOURCE_DIR}/src/resources/tvos/splash/*.png")
+	if (BSTONE_TVOS_SPLASH_FILES)
+		target_sources(bstone PRIVATE ${BSTONE_TVOS_SPLASH_FILES})
+		set_source_files_properties(${BSTONE_TVOS_SPLASH_FILES} PROPERTIES
+			MACOSX_PACKAGE_LOCATION Resources)
+		source_group("resources/tvos/splash" FILES ${BSTONE_TVOS_SPLASH_FILES})
+		list(LENGTH BSTONE_TVOS_SPLASH_FILES BSTONE_TVOS_SPLASH_COUNT)
+		message(STATUS "[bstone] tvOS: bundling ${BSTONE_TVOS_SPLASH_COUNT} custom splash PNG(s)")
+	endif ()
 endif ()
 
 #

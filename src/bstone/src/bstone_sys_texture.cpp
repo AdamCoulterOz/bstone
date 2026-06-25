@@ -20,6 +20,11 @@ void Texture::set_blend_mode(TextureBlendMode mode)
 	do_set_blend_mode(mode);
 }
 
+void Texture::set_alpha_mod(std::uint8_t alpha)
+{
+	do_set_alpha_mod(alpha);
+}
+
 void Texture::copy(const Rectangle* texture_rectangle, const Rectangle* target_rectangle)
 {
 	return do_copy(texture_rectangle, target_rectangle);

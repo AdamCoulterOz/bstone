@@ -231,6 +231,15 @@ void VL_FadeIn(
 	const std::uint8_t* palette,
 	int steps);
 
+// Custom full-screen image (tvOS splash). See SwVideo::present_fullscreen_rgba.
+void VL_PresentFullscreenRgba(
+	const bstone::Rgba8* src,
+	int width,
+	int height,
+	int fade_ticks);
+
+void VL_FadeOutFullscreen(int fade_ticks);
+
 void VL_Plot(
 	int x,
 	int y,

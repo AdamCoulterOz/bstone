@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 #include <chrono>
@@ -16,6 +17,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <iterator>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 #include "3d_def.h"
 #include "jm_lzh.h"
 #include "jm_tp.h"
@@ -39,6 +41,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_fs_utils.h"
 #include "bstone_globals.h"
 #include "bstone_icloud.h"
+#include "bstone_image_decoder.h"
 #include "bstone_logger.h"
 #include "bstone_math.h"
 #include "bstone_memory_stream.h"
@@ -9734,6 +9737,64 @@ void Quit()
 	throw QuitException{};
 }
 
+#if BSTONE_TVOS
+// Loads a bundled custom 16:9 splash PNG (data_dir_ + rel_path), decodes it and
+// presents it full-screen with a fade-in. Returns false if the file is absent or
+// fails to decode, so the caller falls back to the original VGA pic.
+bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks)
+{
+	const auto path = data_dir_ + rel_path;
+
+	std::FILE* file = std::fopen(path.c_str(), "rb");
+
+	if (file == nullptr)
+	{
+		return false;
+	}
+
+	std::fseek(file, 0, SEEK_END);
+	const auto file_size = std::ftell(file);
+	std::fseek(file, 0, SEEK_SET);
+
+	if (file_size <= 0)
+	{
+		std::fclose(file);
+		return false;
+	}
+
+	auto bytes = std::vector<unsigned char>(static_cast<std::size_t>(file_size));
+	const auto read_count = std::fread(bytes.data(), 1, bytes.size(), file);
+	std::fclose(file);
+
+	if (read_count != bytes.size())
+	{
+		return false;
+	}
+
+	auto width = 0;
+	auto height = 0;
+	auto rgba = bstone::Rgba8Buffer{};
+
+	try
+	{
+		auto decoder = bstone::make_image_decoder(bstone::ImageDecoderType::png);
+		decoder->decode(bytes.data(), static_cast<int>(bytes.size()), width, height, rgba);
+	}
+	catch (...)
+	{
+		return false;
+	}
+
+	if (width <= 0 || height <= 0 || rgba.empty())
+	{
+		return false;
+	}
+
+	VL_PresentFullscreenRgba(rgba.data(), width, height, fade_in_ticks);
+	return true;
+}
+#endif // BSTONE_TVOS
+
 void DemoLoop()
 {
 	bool breakit;
@@ -9788,6 +9849,15 @@ void DemoLoop()
 				//
 				breakit = false;
 
+				bool custom_title = false;
+#if BSTONE_TVOS
+				// tvOS: replace the title with a bundled full-screen 16:9 image if
+				// present; otherwise fall through to the original VGA title page.
+				custom_title = TryShowCustomSplash("title.png", 30);
+#endif
+
+				if (!custom_title)
+				{
 				if (assets_info.is_aog())
 				{
 					CA_CacheScreen(TITLEPIC);
@@ -9864,13 +9934,23 @@ void DemoLoop()
 
 					breakit |= fizzle.present();
 				}
+				} // if (!custom_title)
 
 				if (breakit || IN_UserInput(TickBase * 6))
 				{
 					break;
 				}
 
-				VW_FadeOut();
+#if BSTONE_TVOS
+				if (custom_title)
+				{
+					VL_FadeOutFullscreen(30);
+				}
+				else
+#endif
+				{
+					VW_FadeOut();
+				}
 
 				//
 				// credits page

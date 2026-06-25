@@ -18,6 +18,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <memory>
 
 #include "id_vl.h"
+#include "bstone_rgb8.h"
 
 
 namespace bstone
@@ -76,6 +77,27 @@ public:
 		int end,
 		const std::uint8_t* palette,
 		int steps) = 0;
+
+	// Custom full-screen image (used by the tvOS splash replacement). Presents a
+	// decoded RGBA8 image stretched across the whole native render target,
+	// bypassing the 320x200 VGA buffer and palette. Non-pure with a no-op default
+	// so only the software backend needs to implement it.
+	virtual void present_fullscreen_rgba(
+		const bstone::Rgba8* src,
+		int width,
+		int height,
+		int fade_ticks)
+	{
+		static_cast<void>(src);
+		static_cast<void>(width);
+		static_cast<void>(height);
+		static_cast<void>(fade_ticks);
+	}
+
+	virtual void fade_out_fullscreen(int fade_ticks)
+	{
+		static_cast<void>(fade_ticks);
+	}
 
 	virtual void apply_widescreen() = 0;
 

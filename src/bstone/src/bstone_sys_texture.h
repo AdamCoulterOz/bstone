@@ -9,6 +9,7 @@ SPDX-License-Identifier: MIT
 #ifndef BSTONE_SYS_TEXTURE_INCLUDED
 #define BSTONE_SYS_TEXTURE_INCLUDED
 
+#include <cstdint>
 #include <memory>
 
 #include "bstone_sys_pixel_format.h"
@@ -41,11 +42,13 @@ public:
 	virtual ~Texture();
 
 	void set_blend_mode(TextureBlendMode mode);
+	void set_alpha_mod(std::uint8_t alpha);
 	void copy(const Rectangle* texture_rectangle, const Rectangle* target_rectangle);
 	TextureLockUPtr make_lock();
 
 private:
 	virtual void do_set_blend_mode(TextureBlendMode mode) = 0;
+	virtual void do_set_alpha_mod(std::uint8_t alpha) = 0;
 	virtual void do_copy(const Rectangle* texture_rectangle, const Rectangle* target_rectangle) = 0;
 
 	virtual TextureLockUPtr do_make_lock(const Rectangle* rectangle) = 0;
