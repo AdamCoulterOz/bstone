@@ -213,6 +213,13 @@ if (CMAKE_SYSTEM_NAME STREQUAL "tvOS")
 		COMPILE_FLAGS "-fobjc-arc")
 	source_group("bstone/sys/tvos" FILES src/bstone_icloud.h src/bstone_icloud_tvos.mm)
 
+	# tvOS UIScene life-cycle adoption (required on tvOS 27). Objective-C++ with ARC.
+	target_sources(bstone PRIVATE
+		src/bstone_tvos_scene_delegate.mm)
+	set_source_files_properties(src/bstone_tvos_scene_delegate.mm PROPERTIES
+		COMPILE_FLAGS "-fobjc-arc")
+	source_group("bstone/sys/tvos" FILES src/bstone_tvos_scene_delegate.mm)
+
 	# App icon + Top Shelf brand assets (parallax layered icon). Xcode runs actool
 	# on the .xcassets and ASSETCATALOG_COMPILER_APPICON_NAME picks the brand asset.
 	set(BSTONE_TVOS_ASSETS "${PROJECT_SOURCE_DIR}/src/resources/tvos/Assets.xcassets")

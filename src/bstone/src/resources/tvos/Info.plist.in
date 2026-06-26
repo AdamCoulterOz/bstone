@@ -30,6 +30,28 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<!-- tvOS 27 hard-traps apps that don't adopt the UIScene life cycle. SDL2 uses
+	     the legacy app-delegate window, so we provide a minimal UIWindowSceneDelegate
+	     (BStoneSceneDelegate) that binds SDL's window to the scene. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>BStoneSceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>GCSupportsControllerUserInteraction</key>
 	<true/>
 	<key>GCSupportedGameControllers</key>

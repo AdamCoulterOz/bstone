@@ -209,6 +209,29 @@ int UIKit_CreateWindow(_THIS, SDL_Window *window)
         /* !!! FIXME: can we have a smaller view? */
         uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];
 
+        /* Bind the main-display window to the active UIWindowScene so it displays
+         * under the UIScene life cycle (required on tvOS 26+, hard-enforced on
+         * tvOS 27). Main screen only — an external-display window is placed via
+         * setScreen: below and must not also carry a main-screen windowScene. The
+         * scene may connect before or after this point; BStoneSceneDelegate binds
+         * the window from its side to cover the other ordering. (bstone patch) */
+        if (data.uiscreen == [UIScreen mainScreen]) {
+            if (@available(iOS 13.0, tvOS 13.0, *)) {
+                UIWindowScene *windowScene = nil;
+                for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                    if ([scene isKindOfClass:[UIWindowScene class]]) {
+                        windowScene = (UIWindowScene *)scene;
+                        if (scene.activationState == UISceneActivationStateForegroundActive) {
+                            break;
+                        }
+                    }
+                }
+                if (windowScene != nil) {
+                    uiwindow.windowScene = windowScene;
+                }
+            }
+        }
+
         /* put the window on an external display if appropriate. */
         if (data.uiscreen != [UIScreen mainScreen]) {
             [uiwindow setScreen:data.uiscreen];
