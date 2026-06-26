@@ -22,7 +22,8 @@ namespace rumble {
 // Per-frame tick (call once in the play loop, passing the frame's elapsed tics).
 void update(int tics);
 
-// Clear all rumble immediately (level load, entering menus, etc.).
+// Clear all rumble immediately. (Used at the teleport-warp exit; other transitions
+// such as pause / level load rely on the 200ms auto-off built into update().)
 void stop();
 
 // --- One-shot events ---------------------------------------------------------

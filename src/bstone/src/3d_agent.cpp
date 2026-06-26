@@ -5135,6 +5135,20 @@ void T_Attack(
 		return;
 	}
 
+	// Continuous rumble while the trigger is held on the sustained-fire weapons.
+	// Driven from here (the attack state) rather than T_Player, because that is
+	// where the player actually lives every frame during a held burst.
+	if (buttonstate[bt_attack] && gamestate.ammo > 0)
+	{
+		switch (gamestate.weapon)
+		{
+		case wp_burst_rifle: bstone::rumble::weapon_auto_light(); break;  // Rapid Assault
+		case wp_ion_cannon: bstone::rumble::weapon_auto_medium(); break;  // Dual Neutron
+		case wp_grenade: bstone::rumble::weapon_blast_tail(); break;      // Plasma Discharge tail
+		default: break;
+		}
+	}
+
 	if (gamestate.weapon == wp_autocharge)
 	{
 		UpdateAmmoMsg();
@@ -5440,18 +5454,6 @@ void T_Player(
 	if (buttonstate[bt_attack] && !buttonheld[bt_attack])
 	{
 		Cmd_Fire();
-	}
-
-	// Continuous rumble while holding fire on the sustained-fire weapons.
-	if (buttonstate[bt_attack] && gamestate.ammo > 0)
-	{
-		switch (gamestate.weapon)
-		{
-		case wp_burst_rifle: bstone::rumble::weapon_auto_light(); break;  // Rapid Assault
-		case wp_ion_cannon: bstone::rumble::weapon_auto_medium(); break;  // Dual Neutron
-		case wp_grenade: bstone::rumble::weapon_blast_tail(); break;      // Plasma Discharge tail
-		default: break;
-		}
 	}
 
 	ControlMovement(ob);

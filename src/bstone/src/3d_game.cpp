@@ -29,6 +29,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_logger.h"
 #include "bstone_utility.h"
 #include "bstone_rumble.h"
+#include "bstone_scope_exit.h"
 
 
 static int get_wall_page_count()
@@ -3160,10 +3161,15 @@ void Warped()
 
 	iangle = (((player->dir + 4) % 8) >> 1) * 90;
 
-	s_teleport_rumble = true;
-	RotateView(iangle, 2);
-	s_teleport_rumble = false;
-	bstone::rumble::stop();
+	{
+		// Scope guard so the flag is cleared (and rumble stopped) even if
+		// RotateView throws — otherwise the shared RotateView used for the death
+		// rotation could inherit a leaked teleport rumble.
+		s_teleport_rumble = true;
+		const auto rumble_guard = bstone::make_scope_exit(
+			[]() { s_teleport_rumble = false; bstone::rumble::stop(); });
+		RotateView(iangle, 2);
+	}
 
 	IN_ClearKeysDown();
 	sd_play_player_item_sound(WARPINSND);
