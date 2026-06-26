@@ -20,6 +20,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "3d_menu.h"
 #include "gfxv.h"
 #include "bstone_scope_exit.h"
+#include "bstone_rumble.h"
 
 
 void UpdateRadarGuage();
@@ -2112,6 +2113,7 @@ void PlayLoop()
 	do
 	{
 		PollControls();
+		bstone::rumble::update(tics);
 
 		//
 		// actor thinking

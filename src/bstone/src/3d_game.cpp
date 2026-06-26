@@ -28,6 +28,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_globals.h"
 #include "bstone_logger.h"
 #include "bstone_utility.h"
+#include "bstone_rumble.h"
 
 
 static int get_wall_page_count()
@@ -3138,6 +3139,8 @@ void DrawWarpIn()
 	vid_is_hud = false;
 }
 
+static bool s_teleport_rumble = false; // drives the teleporter's sine rumble in RotateView
+
 void Warped()
 {
 	vid_is_hud = true;
@@ -3157,7 +3160,10 @@ void Warped()
 
 	iangle = (((player->dir + 4) % 8) >> 1) * 90;
 
+	s_teleport_rumble = true;
 	RotateView(iangle, 2);
+	s_teleport_rumble = false;
+	bstone::rumble::stop();
 
 	IN_ClearKeysDown();
 	sd_play_player_item_sound(WARPINSND);
@@ -3301,6 +3307,7 @@ void RotateView(
 	std::int16_t curangle, clockwise, counter, change;
 	objtype* obj;
 	bool old_godmode = godmode;
+	int rumble_elapsed = 0;
 
 	if (player->angle > DestAngle)
 	{
@@ -3348,6 +3355,11 @@ void RotateView(
 			}
 			ThreeDRefresh();
 			CalcTics();
+			if (s_teleport_rumble)
+			{
+				rumble_elapsed += tics;
+				bstone::rumble::teleport_tick(rumble_elapsed, 35);
+			}
 		} while (curangle != DestAngle);
 	}
 	else
@@ -3381,6 +3393,11 @@ void RotateView(
 			}
 			ThreeDRefresh();
 			CalcTics();
+			if (s_teleport_rumble)
+			{
+				rumble_elapsed += tics;
+				bstone::rumble::teleport_tick(rumble_elapsed, 35);
+			}
 		} while (curangle != DestAngle);
 	}
 

@@ -50,6 +50,9 @@ private:
 
 	bool do_poll_event(Event& e) override;
 
+	void do_set_rumble(
+		std::uint16_t low_frequency, std::uint16_t high_frequency, std::uint32_t duration_ms) override;
+
 private:
 	static KeyboardKey map_key_code(SDL_Keycode sdl_key_code) noexcept;
 	static unsigned int map_mouse_buttons_mask(Uint32 sdl_buttons_mask) noexcept;
@@ -122,6 +125,15 @@ void Sdl2EventMgr::operator delete(void* ptr)
 bool Sdl2EventMgr::do_is_initialized() const noexcept
 {
 	return is_initialized_;
+}
+
+void Sdl2EventMgr::do_set_rumble(
+	std::uint16_t low_frequency, std::uint16_t high_frequency, std::uint32_t duration_ms)
+{
+	if (gamepad_ != nullptr)
+	{
+		SDL_GameControllerRumble(gamepad_, low_frequency, high_frequency, duration_ms);
+	}
 }
 
 bool Sdl2EventMgr::do_poll_event(Event& e)

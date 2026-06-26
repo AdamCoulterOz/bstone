@@ -34,6 +34,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_memory_stream.h"
 #include "bstone_saved_game.h"
 #include "bstone_string_helper.h"
+#include "bstone_rumble.h"
 
 // From 3d_debug.cpp
 const objtype* find_countable_enemy();
@@ -1063,6 +1064,25 @@ void TakeDamage(
 		if (killerobj)
 		{
 			killerobj->flags |= FL_FREEZE;
+		}
+
+		bstone::rumble::player_death();
+	}
+	else
+	{
+		// Discrete projectile / melee hit -> scaled jolt. Contact damagers
+		// (Plasma Sphere / arc shield / barriers) are felt via the continuous
+		// contact channel, so don't also pulse here.
+		const auto is_contact = attacker != nullptr && (
+			attacker->obclass == electrosphereobj ||
+			attacker->obclass == arc_barrierobj ||
+			attacker->obclass == post_barrierobj ||
+			attacker->obclass == vpost_barrierobj ||
+			attacker->obclass == vspike_barrierobj);
+
+		if (!is_contact)
+		{
+			bstone::rumble::player_hit(points);
 		}
 	}
 
@@ -2501,17 +2521,20 @@ void GetBonus(
 
 		GiveKey(static_cast<std::int16_t>(keynum));
 		sd_play_player_item_sound(GETKEYSND);
+		bstone::rumble::item_basic();
 		travel_table_[check->tilex][check->tiley] &= ~TT_KEYS;
 		break;
 	}
 
 	case bo_money_bag:
 		sd_play_player_item_sound(BONUS1SND);
+		bstone::rumble::loot(0); // money bag
 		givepoints = true;
 		break;
 
 	case bo_loot:
 		sd_play_player_item_sound(BONUS2SND);
+		bstone::rumble::loot(1); // loot
 		givepoints = true;
 		break;
 
@@ -2521,12 +2544,14 @@ void GetBonus(
 	case bo_gold3:
 	case bo_gold:
 		sd_play_player_item_sound(BONUS3SND);
+		bstone::rumble::loot(2); // gold bars
 		givepoints = true;
 		break;
 
 
 	case bo_bonus:
 		sd_play_player_item_sound(BONUS4SND);
+		bstone::rumble::loot(3); // Xylan orb (jackpot)
 		givepoints = true;
 		break;
 
@@ -2551,6 +2576,7 @@ void GetBonus(
 		HealSelf(static_health[check->itemnumber - bo_fullheal][0]);
 		check->flags &= ~FL_BONUS;
 		shapenum = static_health[check->itemnumber - bo_fullheal][2];
+		bstone::rumble::item_basic();
 		break;
 
 	case bo_clip:
@@ -2559,6 +2585,7 @@ void GetBonus(
 			return;
 		}
 		GiveAmmo(8);
+		bstone::rumble::item_basic();
 		bonus_msg7[45] = '8';
 		break;
 
@@ -4928,11 +4955,13 @@ void GunAttack(
 	case wp_autocharge:
 		skip = true;
 		sd_play_player_weapon_sound(ATKAUTOCHARGESND);
+		bstone::rumble::weapon_light_shot();
 		break;
 
 	case wp_pistol:
 		skip = true;
 		sd_play_player_weapon_sound(ATKCHARGEDSND);
+		bstone::rumble::weapon_heavy_shot();
 		break;
 
 	case wp_burst_rifle:
@@ -5299,6 +5328,7 @@ void T_Attack(
 				sd_play_player_weapon_sound(ATKGRENADESND);
 				SpawnProjectile(ob, grenadeobj);
 				MakeAlertNoise(ob);
+				bstone::rumble::weapon_blast();
 			}
 			break;
 
@@ -5403,12 +5433,25 @@ void T_Player(
 		if (play_hit_wall_sound)
 		{
 			sd_play_player_hit_wall_sound(HITWALLSND);
+			bstone::rumble::wall_search(); // subtle continuous rumble while searching a wall
 		}
 	}
 
 	if (buttonstate[bt_attack] && !buttonheld[bt_attack])
 	{
 		Cmd_Fire();
+	}
+
+	// Continuous rumble while holding fire on the sustained-fire weapons.
+	if (buttonstate[bt_attack] && gamestate.ammo > 0)
+	{
+		switch (gamestate.weapon)
+		{
+		case wp_burst_rifle: bstone::rumble::weapon_auto_light(); break;  // Rapid Assault
+		case wp_ion_cannon: bstone::rumble::weapon_auto_medium(); break;  // Dual Neutron
+		case wp_grenade: bstone::rumble::weapon_blast_tail(); break;      // Plasma Discharge tail
+		default: break;
+		}
 	}
 
 	ControlMovement(ob);

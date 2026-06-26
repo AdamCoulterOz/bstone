@@ -36,6 +36,9 @@ private:
 
 	bool do_poll_event(Event& e) override;
 
+	void do_set_rumble(
+		std::uint16_t low_frequency, std::uint16_t high_frequency, std::uint32_t duration_ms) override;
+
 private:
 	[[noreturn]] static void not_initialized();
 };
@@ -77,6 +80,10 @@ bool NullEventMgr::do_is_initialized() const noexcept
 bool NullEventMgr::do_poll_event(Event&)
 {
 	not_initialized();
+}
+
+void NullEventMgr::do_set_rumble(std::uint16_t, std::uint16_t, std::uint32_t)
+{
 }
 
 [[noreturn]] void NullEventMgr::not_initialized()

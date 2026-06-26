@@ -21,6 +21,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "bstone_exception.h"
 #include "bstone_math.h"
+#include "bstone_rumble.h"
 
 
 // 3d_def.h stuff
@@ -1742,6 +1743,7 @@ void T_OfsBounce(
 	{
 		sd_play_actor_weapon_sound(ELECARCDAMAGESND, *ob);
 		TakeDamage(4, ob);
+		bstone::rumble::contact(); // continuous while touching the Plasma Sphere
 	}
 
 
@@ -2252,6 +2254,7 @@ void T_SmartThought(
 				{
 					sd_play_actor_weapon_sound(ELECARCDAMAGESND, *obj);
 					TakeDamage(4, obj);
+					bstone::rumble::contact(); // touching the arc shield
 				}
 			}
 
@@ -3391,6 +3394,7 @@ void T_BarrierTransition(
 					if (dy <= min_distance && dx <= min_distance)
 					{
 						TakeDamage(2, obj);
+						bstone::rumble::contact(); // touching the containment barrier
 					}
 					break;
 				}

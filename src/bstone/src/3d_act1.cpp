@@ -17,6 +17,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_us.h"
 #include "id_vl.h"
 #include "bstone_exception.h"
+#include "bstone_rumble.h"
 
 
 static constexpr auto door_step = 1.0 / 64.0;
@@ -1532,6 +1533,8 @@ void DoorOpening(
 				sd_play_door_sound(OPENDOORSND, doorobjlist[door]);
 				break;
 			}
+
+			bstone::rumble::door_open();
 		}
 	}
 
@@ -1734,6 +1737,7 @@ void PushWall(
 	mapsegs[1][farmapylookup[pwally] + pwallx] = 0; // remove P tile info
 
 	sd_play_pwall_sound(PUSHWALLSND);
+	bstone::rumble::pushwall_open();
 }
 
 void MovePWalls()

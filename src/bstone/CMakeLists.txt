@@ -1091,6 +1091,8 @@ set(BSTONE_BSTONE_SOURCES
 	src/bstone_game_timer.h
 	src/bstone_globals.cpp
 	src/bstone_globals.h
+	src/bstone_rumble.cpp
+	src/bstone_rumble.h
 	src/bstone_gog_content_path.cpp
 	src/bstone_level_extractor.cpp
 	src/bstone_level_extractor.h
