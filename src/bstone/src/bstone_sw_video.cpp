@@ -473,26 +473,27 @@ try {
 		copy_texture_to_rendering_target(*ui_2nd_texture_, &src_rect, &ui_linc_2nd_dst_rect_);
 	}
 
-	// tvOS: a context light glows over the bezel — red (pulsing alert) during a
-	// briefing, amber (steady) on the in-game pause menu, green (steady) on the
-	// front-end. Each light is its own overlay (transparent except the lit light).
+	// tvOS: a context light glows over the bezel — red during a briefing, amber on
+	// the in-game pause menu, green on the front-end. All three share the same
+	// subtle breathing pulse. Each light is its own overlay (transparent except
+	// the lit light).
 	if (vid_tvos_linc)
 	{
+		// Subtle breathing pulse, shared by every context light: ease alpha
+		// 0 -> full -> 0 (smoothstep).
+		linc_blink_ += 1;
+		const auto period = 160; // frames per full cycle (~2.3 s); larger = slower
+		const auto half = period / 2;
+		const auto t = linc_blink_ % period;
+		const auto tri = static_cast<double>(t < half ? t : (period - t)) / half;
+		const auto eased = tri * tri * (3.0 - (2.0 * tri));
+		const auto alpha = static_cast<std::uint8_t>(eased * 255.0);
+
 		auto light_index = vid_linc_light_green;
-		auto alpha = static_cast<std::uint8_t>(255);
 
 		if (vid_linc_briefing)
 		{
 			light_index = vid_linc_light_red;
-
-			// Subtle breathing pulse: ease alpha 0 -> full -> 0 (smoothstep).
-			linc_blink_ += 1;
-			const auto period = 160; // frames per full cycle (~2.3 s); larger = slower
-			const auto half = period / 2;
-			const auto t = linc_blink_ % period;
-			const auto tri = static_cast<double>(t < half ? t : (period - t)) / half;
-			const auto eased = tri * tri * (3.0 - (2.0 * tri));
-			alpha = static_cast<std::uint8_t>(eased * 255.0);
 		}
 		else if (vid_linc_ingame)
 		{
