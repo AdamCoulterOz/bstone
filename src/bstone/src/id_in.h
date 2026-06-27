@@ -348,6 +348,8 @@ void in_set_is_mouse_enabled(bool is_enabled);
 
 int in_get_mouse_sensitivity() noexcept;
 void in_set_mouse_sensitivity(int sensitivity);
+int in_get_stick_sensitivity() noexcept;
+void in_set_stick_sensitivity(int sensitivity);
 
 // DEBUG - put names in prototypes
 

@@ -260,6 +260,8 @@ void DrawNewEpisode();
 void DrawNewGame();
 
 void DrawMouseSens();
+void DrawStickSens();
+void DrawStickPos();
 
 void DrawCtlScreen();
 
@@ -308,6 +310,9 @@ void CustomControls(
 	std::int16_t temp1);
 
 void MouseSensitivity(
+	std::int16_t temp1);
+
+void StickSensitivity(
 	std::int16_t temp1);
 
 //
@@ -412,7 +417,7 @@ CP_iteminfo MainItems = {MENU_X, MENU_Y, 11, MM_NEW_MISSION, 0, 9, {77, 1, 154, 
 CP_iteminfo GopItems = {MENU_X, MENU_Y + 25, 6, 0, 0, 9, {77, 1, 154, 9, 1}};
 CP_iteminfo SndItems = {SM_X, SM_Y, 6, 0, 0, 8, {87, -1, 144, 7, 1}};
 CP_iteminfo LSItems = {LSM_X, LSM_Y, 10, 0, 0, 8, {86, -1, 144, 8, 1}};
-CP_iteminfo CtlItems = {CTL_X, CTL_Y, 3, -1, 0, 9, {87, 1, 174, 9, 1}};
+CP_iteminfo CtlItems = {CTL_X, CTL_Y, 4, -1, 0, 9, {87, 1, 174, 9, 1}};
 CP_iteminfo CusItems = {CST_X, CST_Y + 7, 6, -1, 0, 15, {54, -1, 203, 7, 1}};
 CP_iteminfo NewEitems = {NE_X, NE_Y, 6, 0, 0, 16, {43, -2, 119, 16, 1}};
 CP_iteminfo NewItems = {NM_X, NM_Y, 4, 1, 0, 16, {60, -2, 105, 16, 1}};
@@ -472,6 +477,7 @@ CP_itemtype SndMenu[] =
 CP_itemtype CtlMenu[] = {
 	{AT_DISABLED, "MOUSE ENABLED", 0},
 	{AT_DISABLED, "MOUSE SENSITIVITY", MouseSensitivity},
+	{AT_ENABLED, "STICK SENSITIVITY", StickSensitivity},
 	{AT_ENABLED, "CUSTOMIZE CONTROLS", CustomControls}
 };
 
@@ -3470,6 +3476,7 @@ void CP_Control(
 	{
 		MOUSEENABLE,
 		MOUSESENS,
+		STICKSENS,
 		CUSTOMIZE,
 	};
 
@@ -3494,6 +3501,7 @@ void CP_Control(
 			break;
 
 		case MOUSESENS:
+		case STICKSENS:
 		case CUSTOMIZE:
 			DrawCtlScreen();
 			MenuFadeIn();
@@ -3628,6 +3636,145 @@ void MouseSensitivity(
 	if (exit == 2)
 	{
 		in_set_mouse_sensitivity(oldMA);
+		menu_play_esc_pressed_sound();
+	}
+	else
+	{
+		ShootSnd();
+	}
+
+	WaitKeyUp();
+	MenuFadeOut();
+}
+
+void DrawStickPos()
+{
+	const int thumb_width = 16;
+	const int track_width = 160;
+	const int slide_width = track_width - thumb_width;
+	const int stick_delta = max_stick_sensitivity - min_stick_sensitivity;
+
+	// Current percentage, centred above the bar. Clear its row first so a shrinking
+	// number doesn't leave a ghost.
+	VWB_Bar(74, 76, track_width, 11, menu_background_color);
+
+	{
+		const auto text = std::to_string(in_get_stick_sensitivity()) + "%";
+		const auto old_font = fontnumber;
+		fontnumber = 2;
+		SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
+
+		int w;
+		int h;
+		USL_MeasureString(text.c_str(), &w, &h);
+		PrintX = static_cast<std::int16_t>(74 + ((track_width - w) / 2));
+		PrintY = 78;
+		US_Print(text.c_str());
+
+		fontnumber = old_font;
+	}
+
+	VWB_Bar(74, 92, track_width, 8, HIGHLIGHT_BOX_COLOR);
+
+	DrawOutline(73, 91, track_width + 1, 9, ENABLED_TEXT_COLOR, ENABLED_TEXT_COLOR);
+
+	VWB_Bar(
+		74 + ((slide_width * (in_get_stick_sensitivity() - min_stick_sensitivity)) / stick_delta),
+		92,
+		thumb_width,
+		8,
+		HIGHLIGHT_TEXT_COLOR);
+}
+
+void DrawStickSens()
+{
+	ClearMScreen();
+	DrawMenuTitle("STICK SENSITIVITY");
+	DrawInstructions(IT_MOUSE_SEN);
+
+	fontnumber = 4;
+
+	SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
+	PrintX = 36;
+	PrintY = 91;
+	US_Print("LOW");
+	PrintX = 242;
+	US_Print("HIGH");
+
+	DrawStickPos();
+
+	VW_UpdateScreen();
+	MenuFadeIn();
+}
+
+void StickSensitivity(
+	std::int16_t)
+{
+	ControlInfo ci;
+	std::int16_t exit = 0;
+
+	const auto oldSS = in_get_stick_sensitivity();
+
+	DrawStickSens();
+	do
+	{
+		ReadAnyControl(&ci);
+		switch (ci.dir)
+		{
+		case dir_North:
+		case dir_West:
+			if (in_get_stick_sensitivity() > min_stick_sensitivity)
+			{
+				in_set_stick_sensitivity(in_get_stick_sensitivity() - 5);
+				DrawStickPos();
+				VW_UpdateScreen();
+				menu_play_move_gun_1_sound();
+
+				while (Keyboard[ScanCode::sc_left_arrow])
+				{
+					in_handle_events();
+				}
+
+				WaitKeyUp();
+			}
+			break;
+
+		case dir_South:
+		case dir_East:
+			if (in_get_stick_sensitivity() < max_stick_sensitivity)
+			{
+				in_set_stick_sensitivity(in_get_stick_sensitivity() + 5);
+				DrawStickPos();
+				VW_UpdateScreen();
+				menu_play_move_gun_1_sound();
+
+				while (Keyboard[ScanCode::sc_right_arrow])
+				{
+					in_handle_events();
+				}
+
+				WaitKeyUp();
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		if (ci.button0 || Keyboard[ScanCode::sc_space] || Keyboard[ScanCode::sc_return])
+		{
+			exit = 1;
+		}
+		else if (ci.button1 || Keyboard[ScanCode::sc_escape])
+		{
+			exit = 2;
+		}
+
+	} while (!exit);
+
+	if (exit == 2)
+	{
+		in_set_stick_sensitivity(oldSS);
 		menu_play_esc_pressed_sound();
 	}
 	else
