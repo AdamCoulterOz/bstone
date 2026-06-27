@@ -6,14 +6,15 @@
 	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
 	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
 
-	<!-- NOTE: com.apple.developer.user-management (runs-as-current-user) — which
-	     would bind iCloud KVS to the *selected* Apple TV profile — is intentionally
-	     omitted: Xcode automatic signing cannot provision it (it needs the
-	     "User Management" capability enabled by hand on the App ID portal). Without
-	     it, iCloud KVS resolves to the device's primary iCloud account, which is
-	     identical on a single-profile Apple TV. Re-add the key below and enable the
-	     capability on the App ID for true per-profile separation:
-	       <key>com.apple.developer.user-management</key>
-	       <array><string>runs-as-current-user</string></array> -->
+	<!-- Per-Apple-TV-profile separation: run as the selected user so the app's
+	     sandbox container AND its iCloud KVS are scoped to that profile, not the
+	     device's primary iCloud account. REQUIRES the "User Management" capability
+	     enabled on the au.adamcoulter.bstone App ID in the Apple Developer portal —
+	     Xcode automatic signing cannot turn it on by itself, so a build will fail to
+	     provision until the capability exists on the App ID. -->
+	<key>com.apple.developer.user-management</key>
+	<array>
+		<string>runs-as-current-user</string>
+	</array>
 </dict>
 </plist>
