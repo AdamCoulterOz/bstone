@@ -275,11 +275,10 @@ void VL_FadeOutFullscreen(int fade_ticks);
 // Defined (tvOS only) in 3d_main.cpp; never referenced on non-tvOS builds.
 bool TryShowCustomSplash(const char* rel_path, int fade_in_ticks);
 
-// tvOS LINC bezel layers (full-screen RGBA8): two background skins + three lights.
+// tvOS LINC bezel layers (full-screen RGBA8): one static bezel + three lights.
 enum
 {
-	vid_linc_closed,      // default bezel
-	vid_linc_open,        // briefing bezel (reveals the second screen)
+	vid_linc_bezel,       // the single static terminal bezel (both screens always shown)
 	vid_linc_light_red,   // briefing alert
 	vid_linc_light_green, // front-end idle
 	vid_linc_light_amber, // in-game
