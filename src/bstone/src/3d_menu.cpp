@@ -3729,13 +3729,7 @@ void StickSensitivity(
 				DrawStickPos();
 				VW_UpdateScreen();
 				menu_play_move_gun_1_sound();
-
-				while (Keyboard[ScanCode::sc_left_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
+				TicDelay(10); // one step per press; while held, repeat ~150ms (10 tics @ 70Hz)
 			}
 			break;
 
@@ -3747,13 +3741,7 @@ void StickSensitivity(
 				DrawStickPos();
 				VW_UpdateScreen();
 				menu_play_move_gun_1_sound();
-
-				while (Keyboard[ScanCode::sc_right_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
+				TicDelay(10); // one step per press; while held, repeat ~150ms (10 tics @ 70Hz)
 			}
 			break;
 
