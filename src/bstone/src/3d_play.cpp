@@ -568,6 +568,10 @@ void PollControllerMove()
 		return;
 	}
 
+	// Linear analogue-stick sensitivity (menu setting; 100% = unchanged), applied
+	// after the response curves below.
+	const auto sensitivity = static_cast<double>(in_get_stick_sensitivity()) / 100.0;
+
 	// Walk by default; hold a run button (LB / L3 / R3, all bound to e_bi_run) to
 	// run. (Speed still scales with stick deflection via the cubic curve.)
 	const auto is_running = in_is_binding_pressed(e_bi_run);
@@ -590,7 +594,7 @@ void PollControllerMove()
 		if (mag > deadzone)
 		{
 			const auto curved = PollControllerCurve((mag - deadzone) / (1.0 - deadzone));
-			const auto scale = (curved / mag) * value; // curved magnitude, original direction
+			const auto scale = (curved / mag) * value * sensitivity; // curved magnitude, original direction
 
 			controly += static_cast<int>(ny * scale);     // up = forward
 			strafe_value += static_cast<int>(nx * scale); // left = strafe left
@@ -623,7 +627,7 @@ void PollControllerMove()
 
 			const auto shaped = (expo * n) + ((1.0 - expo) * n * n * n);
 			const auto turn = (a < 0.0 ? -shaped : shaped);
-			controlx += static_cast<int>(turn * turn_units_per_tic * static_cast<double>(tics));
+			controlx += static_cast<int>(turn * turn_units_per_tic * static_cast<double>(tics) * sensitivity);
 		}
 	}
 }

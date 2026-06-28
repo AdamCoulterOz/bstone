@@ -155,12 +155,25 @@ auto in_mouse_sensitivity_cvar = bstone::CVar{
 	in_mouse_sensitivity_cvar_min,
 	in_mouse_sensitivity_cvar_max};
 
+// in_stick_sensitivity (analogue-stick sensitivity, percent 25..200; 100 = unchanged)
+
+constexpr auto in_stick_sensitivity_cvar_name = bstone::StringView{"in_stick_sensitivity"};
+
+auto in_stick_sensitivity_cvar = bstone::CVar{
+	bstone::CVarInt32Tag{},
+	in_stick_sensitivity_cvar_name,
+	bstone::CVarFlags::archive,
+	default_stick_sensitivity,
+	min_stick_sensitivity,
+	max_stick_sensitivity};
+
 } // namespace
 
 void in_initialize_cvars(bstone::CVarMgr& cvar_mgr)
 {
 	cvar_mgr.add(in_is_mouse_enabled_cvar);
 	cvar_mgr.add(in_mouse_sensitivity_cvar);
+	cvar_mgr.add(in_stick_sensitivity_cvar);
 }
 
 bool in_grab_mouse(bool grab)
@@ -1282,6 +1295,16 @@ int in_get_mouse_sensitivity() noexcept
 void in_set_mouse_sensitivity(int sensitivity)
 {
 	in_mouse_sensitivity_cvar.set_int32(sensitivity);
+}
+
+int in_get_stick_sensitivity() noexcept
+{
+	return in_stick_sensitivity_cvar.get_int32();
+}
+
+void in_set_stick_sensitivity(int sensitivity)
+{
+	in_stick_sensitivity_cvar.set_int32(sensitivity);
 }
 
 void IN_Startup()

@@ -2911,6 +2911,11 @@ extern int last_map_tile_y;
 // BBi
 const int min_mouse_sensitivity = 0;
 const int max_mouse_sensitivity = 54;
+
+// Analogue-stick sensitivity as a linear percent multiplier (100 = unchanged).
+const int min_stick_sensitivity = 25;
+const int max_stick_sensitivity = 200;
+const int default_stick_sensitivity = 100;
 #ifndef __vita__
 const int default_mouse_sensitivity = 5;
 #else
