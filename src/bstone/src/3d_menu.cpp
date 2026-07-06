@@ -259,9 +259,6 @@ void DrawNewEpisode();
 
 void DrawNewGame();
 
-void DrawMouseSens();
-void DrawStickSens();
-void DrawStickPos();
 
 void DrawCtlScreen();
 
@@ -3513,153 +3510,35 @@ void CP_Control(
 	MenuFadeOut();
 }
 
-void DrawMousePos()
+// A left/right sensitivity slider shared by the mouse and analogue-stick menus.
+struct SensitivitySliderDef
+{
+	const char* title;
+	const char* low_label;
+	const char* high_label;
+	int min_value;
+	int max_value;
+	int step;
+	bool show_percent; // draw the current value as "N%" above the bar
+	bool auto_repeat;  // true: hold to repeat (~150ms); false: one step per key press
+	int (*get)();
+	void (*set)(int);
+};
+
+void DrawSensitivityThumb(const SensitivitySliderDef& def)
 {
 	const int thumb_width = 16;
 	const int track_width = 160;
 	const int slide_width = track_width - thumb_width;
-	const int max_mouse_delta = max_mouse_sensitivity - min_mouse_sensitivity;
+	const int value_delta = def.max_value - def.min_value;
 
-	VWB_Bar(
-		74,
-		92,
-		track_width,
-		8,
-		HIGHLIGHT_BOX_COLOR);
-
-	DrawOutline(
-		73,
-		91,
-		track_width + 1,
-		9,
-		ENABLED_TEXT_COLOR,
-		ENABLED_TEXT_COLOR);
-
-	VWB_Bar(
-		74 + ((slide_width * in_get_mouse_sensitivity()) / max_mouse_delta),
-		92,
-		thumb_width,
-		8,
-		HIGHLIGHT_TEXT_COLOR);
-}
-
-void DrawMouseSens()
-{
-	ClearMScreen();
-#ifdef __vita__
-	DrawMenuTitle("JOYSTICK SENSITIVITY");
-#else
-	DrawMenuTitle("MOUSE SENSITIVITY");
-#endif
-	DrawInstructions(IT_MOUSE_SEN);
-
-	fontnumber = 4;
-
-	SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
-	PrintX = 36;
-	PrintY = 91;
-	US_Print("SLOW");
-	PrintX = 242;
-	US_Print("FAST");
-
-	DrawMousePos();
-
-	VW_UpdateScreen();
-	MenuFadeIn();
-}
-
-void MouseSensitivity(
-	std::int16_t)
-{
-	ControlInfo ci;
-	std::int16_t exit = 0;
-
-	const auto oldMA = in_get_mouse_sensitivity();
-
-	DrawMouseSens();
-	do
+	if (def.show_percent)
 	{
-		ReadAnyControl(&ci);
-		switch (ci.dir)
-		{
-		case dir_North:
-		case dir_West:
-			if (in_get_mouse_sensitivity() > 0)
-			{
-				in_set_mouse_sensitivity(in_get_mouse_sensitivity() - 1);
-				DrawMousePos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
+		// Current percentage, centred above the bar. Clear its row first so a
+		// shrinking number doesn't leave a ghost.
+		VWB_Bar(74, 76, track_width, 11, menu_background_color);
 
-				while (Keyboard[ScanCode::sc_left_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
-			}
-			break;
-
-		case dir_South:
-		case dir_East:
-			if (in_get_mouse_sensitivity() < max_mouse_sensitivity)
-			{
-				in_set_mouse_sensitivity(in_get_mouse_sensitivity() + 1);
-				DrawMousePos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
-
-				while (Keyboard[ScanCode::sc_right_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
-			}
-			break;
-
-		default:
-			break;
-		}
-
-		if (ci.button0 || Keyboard[ScanCode::sc_space] || Keyboard[ScanCode::sc_return])
-		{
-			exit = 1;
-		}
-		else if (ci.button1 || Keyboard[ScanCode::sc_escape])
-		{
-			exit = 2;
-		}
-
-	} while (!exit);
-
-	if (exit == 2)
-	{
-		in_set_mouse_sensitivity(oldMA);
-		menu_play_esc_pressed_sound();
-	}
-	else
-	{
-		ShootSnd();
-	}
-
-	WaitKeyUp();
-	MenuFadeOut();
-}
-
-void DrawStickPos()
-{
-	const int thumb_width = 16;
-	const int track_width = 160;
-	const int slide_width = track_width - thumb_width;
-	const int stick_delta = max_stick_sensitivity - min_stick_sensitivity;
-
-	// Current percentage, centred above the bar. Clear its row first so a shrinking
-	// number doesn't leave a ghost.
-	VWB_Bar(74, 76, track_width, 11, menu_background_color);
-
-	{
-		const auto text = std::to_string(in_get_stick_sensitivity()) + "%";
+		const auto text = std::to_string(def.get()) + "%";
 		const auto old_font = fontnumber;
 		fontnumber = 2;
 		SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
@@ -3679,17 +3558,17 @@ void DrawStickPos()
 	DrawOutline(73, 91, track_width + 1, 9, ENABLED_TEXT_COLOR, ENABLED_TEXT_COLOR);
 
 	VWB_Bar(
-		74 + ((slide_width * (in_get_stick_sensitivity() - min_stick_sensitivity)) / stick_delta),
+		74 + ((slide_width * (def.get() - def.min_value)) / value_delta),
 		92,
 		thumb_width,
 		8,
 		HIGHLIGHT_TEXT_COLOR);
 }
 
-void DrawStickSens()
+void DrawSensitivityScreen(const SensitivitySliderDef& def)
 {
 	ClearMScreen();
-	DrawMenuTitle("STICK SENSITIVITY");
+	DrawMenuTitle(def.title);
 	DrawInstructions(IT_MOUSE_SEN);
 
 	fontnumber = 4;
@@ -3697,56 +3576,64 @@ void DrawStickSens()
 	SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
 	PrintX = 36;
 	PrintY = 91;
-	US_Print("LOW");
+	US_Print(def.low_label);
 	PrintX = 242;
-	US_Print("HIGH");
+	US_Print(def.high_label);
 
-	DrawStickPos();
+	DrawSensitivityThumb(def);
 
 	VW_UpdateScreen();
 	MenuFadeIn();
 }
 
-void StickSensitivity(
-	std::int16_t)
+void RunSensitivitySlider(const SensitivitySliderDef& def)
 {
 	ControlInfo ci;
 	std::int16_t exit = 0;
 
-	const auto oldSS = in_get_stick_sensitivity();
+	const auto old_value = def.get();
 
-	DrawStickSens();
+	DrawSensitivityScreen(def);
 	do
 	{
 		ReadAnyControl(&ci);
-		switch (ci.dir)
+
+		const auto is_down = (ci.dir == dir_North || ci.dir == dir_West);
+		const auto is_up = (ci.dir == dir_South || ci.dir == dir_East);
+		auto changed = false;
+
+		if (is_down && def.get() > def.min_value)
 		{
-		case dir_North:
-		case dir_West:
-			if (in_get_stick_sensitivity() > min_stick_sensitivity)
+			def.set(def.get() - def.step);
+			changed = true;
+		}
+		else if (is_up && def.get() < def.max_value)
+		{
+			def.set(def.get() + def.step);
+			changed = true;
+		}
+
+		if (changed)
+		{
+			DrawSensitivityThumb(def);
+			VW_UpdateScreen();
+			menu_play_move_gun_1_sound();
+
+			if (def.auto_repeat)
 			{
-				in_set_stick_sensitivity(in_get_stick_sensitivity() - 5);
-				DrawStickPos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
 				TicDelay(10); // one step per press; while held, repeat ~150ms (10 tics @ 70Hz)
 			}
-			break;
-
-		case dir_South:
-		case dir_East:
-			if (in_get_stick_sensitivity() < max_stick_sensitivity)
+			else
 			{
-				in_set_stick_sensitivity(in_get_stick_sensitivity() + 5);
-				DrawStickPos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
-				TicDelay(10); // one step per press; while held, repeat ~150ms (10 tics @ 70Hz)
-			}
-			break;
+				const auto held = is_down ? ScanCode::sc_left_arrow : ScanCode::sc_right_arrow;
 
-		default:
-			break;
+				while (Keyboard[held])
+				{
+					in_handle_events();
+				}
+
+				WaitKeyUp();
+			}
 		}
 
 		if (ci.button0 || Keyboard[ScanCode::sc_space] || Keyboard[ScanCode::sc_return])
@@ -3762,7 +3649,7 @@ void StickSensitivity(
 
 	if (exit == 2)
 	{
-		in_set_stick_sensitivity(oldSS);
+		def.set(old_value);
 		menu_play_esc_pressed_sound();
 	}
 	else
@@ -3772,6 +3659,50 @@ void StickSensitivity(
 
 	WaitKeyUp();
 	MenuFadeOut();
+}
+
+void MouseSensitivity(
+	std::int16_t)
+{
+	const SensitivitySliderDef def
+	{
+#ifdef __vita__
+		"JOYSTICK SENSITIVITY",
+#else
+		"MOUSE SENSITIVITY",
+#endif
+		"SLOW",
+		"FAST",
+		min_mouse_sensitivity,
+		max_mouse_sensitivity,
+		1,
+		false,
+		false,
+		[]() { return in_get_mouse_sensitivity(); },
+		[](int v) { in_set_mouse_sensitivity(v); },
+	};
+
+	RunSensitivitySlider(def);
+}
+
+void StickSensitivity(
+	std::int16_t)
+{
+	const SensitivitySliderDef def
+	{
+		"STICK SENSITIVITY",
+		"LOW",
+		"HIGH",
+		min_stick_sensitivity,
+		max_stick_sensitivity,
+		5,
+		true,
+		true,
+		[]() { return in_get_stick_sensitivity(); },
+		[](int v) { in_set_stick_sensitivity(v); },
+	};
+
+	RunSensitivitySlider(def);
 }
 
 // --------------------------------------------------------------------------
