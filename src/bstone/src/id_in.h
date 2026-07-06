@@ -375,8 +375,8 @@ bool in_grab_mouse(bool grab);
 void in_handle_events();
 void in_get_mouse_deltas(int& dx, int& dy);
 
-// Current (deadzoned) game-controller stick values, raw -32768..32767.
-// Returns true if a controller stick is being moved.
+// Current raw game-controller stick values, -32768..32767 (the deadzone is applied
+// by the movement code, not here). Returns true if a controller stick is being moved.
 bool in_get_gamepad_move(int& left_x, int& left_y, int& right_x);
 void in_clear_mouse_deltas();
 bool in_is_binding_pressed(BindingId binding_id);

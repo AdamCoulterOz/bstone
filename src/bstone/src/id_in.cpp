@@ -830,7 +830,6 @@ bool in_gc_dpad_down = false;
 bool in_gc_dpad_left = false;
 bool in_gc_dpad_right = false;
 
-constexpr auto in_gc_axis_deadzone = 8000;
 constexpr auto in_gc_trigger_threshold = 16384;
 constexpr auto in_gc_nav_threshold = 16384;
 

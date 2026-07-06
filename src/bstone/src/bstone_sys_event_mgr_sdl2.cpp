@@ -8,8 +8,6 @@ SPDX-License-Identifier: MIT
 
 #include "SDL.h"
 
-#include <string>
-
 #include "bstone_assert.h"
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
@@ -69,7 +67,6 @@ private:
 	static GamepadAxis map_gamepad_axis(int sdl_axis) noexcept;
 	static bool handle_event(const SDL_ControllerButtonEvent& sdl_e, GamepadButtonEvent& e) noexcept;
 	static bool handle_event(const SDL_ControllerAxisEvent& sdl_e, GamepadAxisEvent& e) noexcept;
-	static void open_gamepads(Logger& logger) noexcept;
 	static bool handle_event(const SDL_WindowEvent& sdl_e, WindowEvent& e) noexcept;
 	static bool handle_event(const SDL_Event& sdl_e, Event& e) noexcept;
 };
@@ -102,8 +99,9 @@ try
 	is_initialized_ = true;
 
 #if BSTONE_TVOS
+	// Enable controller events; tvOS delivers SDL_CONTROLLERDEVICEADDED for pads
+	// present at launch and for later hot-plugs, which do_poll_event opens.
 	SDL_GameControllerEventState(SDL_ENABLE);
-	open_gamepads(logger_);
 #endif
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
@@ -598,24 +596,6 @@ bool Sdl2EventMgr::handle_event(const SDL_ControllerAxisEvent& sdl_e, GamepadAxi
 	e.value = sdl_e.value;
 	e.type = EventType::gamepad_axis;
 	return true;
-}
-
-void Sdl2EventMgr::open_gamepads(Logger& logger) noexcept
-{
-	static_cast<void>(logger);
-
-	// Open any game controllers already connected at startup (desktop). On tvOS
-	// controllers connect asynchronously after launch and are opened in
-	// do_poll_event when SDL_CONTROLLERDEVICEADDED arrives.
-	const auto count = SDL_NumJoysticks();
-
-	for (auto i = 0; i < count; ++i)
-	{
-		if (SDL_IsGameController(i) == SDL_TRUE)
-		{
-			SDL_GameControllerOpen(i);
-		}
-	}
 }
 
 bool Sdl2EventMgr::handle_event(const SDL_Event& sdl_e, Event& e) noexcept
