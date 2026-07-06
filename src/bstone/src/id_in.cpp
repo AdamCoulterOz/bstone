@@ -891,6 +891,34 @@ void in_handle_gamepad_axis(const bstone::sys::GamepadAxisEvent& e)
 	}
 }
 
+// Clear all game-controller-derived input to neutral. Called when the controller
+// disconnects (its axis/button events stop arriving, so the last values would
+// otherwise stay frozen) and from in_reset_state().
+void in_reset_gamepad_state()
+{
+	in_gc_left_x = 0;
+	in_gc_left_y = 0;
+	in_gc_right_x = 0;
+	in_gc_dpad_up = false;
+	in_gc_dpad_down = false;
+	in_gc_dpad_left = false;
+	in_gc_dpad_right = false;
+
+	// Release every key a controller button or trigger can hold, so movement,
+	// attack, run and strafe never stick on after a disconnect.
+	in_gc_set_key(ScanCode::sc_space, false);
+	in_gc_set_key(ScanCode::sc_y, false);
+	in_gc_set_key(ScanCode::sc_escape, false);
+	in_gc_set_key(ScanCode::sc_tab, false);
+	in_gc_set_key(ScanCode::sc_left_shift, false);
+	in_gc_set_key(ScanCode::sc_control, false);
+	in_gc_set_key(ScanCode::sc_alt, false);
+	in_gc_set_key(ScanCode::sc_q, false);
+	in_gc_set_key(ScanCode::sc_e, false);
+	in_gc_set_key(ScanCode::sc_equals, false);
+	in_gc_set_key(ScanCode::sc_minus, false);
+}
+
 } // namespace
 
 void in_handle_events()
@@ -930,6 +958,10 @@ void in_handle_events()
 
 			case bstone::sys::EventType::gamepad_axis:
 				in_handle_gamepad_axis(e.gamepad_axis);
+				break;
+
+			case bstone::sys::EventType::gamepad_removed:
+				in_reset_gamepad_state();
 				break;
 
 			case bstone::sys::EventType::mouse_motion:
@@ -1457,6 +1489,7 @@ void in_reset_state()
 	}
 
 	in_clear_mouse_deltas();
+	in_reset_gamepad_state();
 
 	in_is_lalt_pressed = false;
 	in_is_ralt_pressed = false;

@@ -62,7 +62,13 @@ bool read_file(const std::string& path, std::vector<unsigned char>& out)
 
 bool write_file(const std::string& path, const void* data, std::size_t size)
 {
-	std::FILE* file = std::fopen(path.c_str(), "wb");
+	// Write to a temp file then atomically rename into place. If the process is
+	// killed mid-write, only the temp file is truncated; the real path keeps its
+	// previous contents (or stays absent), so a later restore can still re-pull the
+	// intact copy from iCloud instead of being blocked by a truncated stub.
+	const std::string temp_path = path + ".tmp";
+
+	std::FILE* file = std::fopen(temp_path.c_str(), "wb");
 
 	if (file == nullptr)
 	{
@@ -70,8 +76,20 @@ bool write_file(const std::string& path, const void* data, std::size_t size)
 	}
 
 	const std::size_t written = std::fwrite(data, 1, size, file);
-	std::fclose(file);
-	return written == size;
+
+	if (std::fclose(file) != 0 || written != size)
+	{
+		std::remove(temp_path.c_str());
+		return false;
+	}
+
+	if (std::rename(temp_path.c_str(), path.c_str()) != 0)
+	{
+		std::remove(temp_path.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 bool file_exists(const std::string& path)

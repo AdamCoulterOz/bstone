@@ -24,6 +24,7 @@ enum class EventType
 	mouse_wheel,
 	gamepad_button,
 	gamepad_axis,
+	gamepad_removed,
 };
 
 // Game-controller buttons (SDL_GameControllerButton, backend-agnostic).

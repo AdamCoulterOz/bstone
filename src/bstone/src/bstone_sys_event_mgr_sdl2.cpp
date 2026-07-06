@@ -149,11 +149,37 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 		// asynchronously after launch, so it can't be done once at startup.
 		if (sdl_e.type == SDL_CONTROLLERDEVICEADDED)
 		{
+			if (gamepad_ != nullptr)
+			{
+				SDL_GameControllerClose(gamepad_);
+			}
+
 			gamepad_ = SDL_GameControllerOpen(sdl_e.cdevice.which);
+
+			for (auto& axis_value : gamepad_last_axis_)
+			{
+				axis_value = 0;
+			}
 		}
 		else if (sdl_e.type == SDL_CONTROLLERDEVICEREMOVED)
 		{
-			gamepad_ = nullptr;
+			if (gamepad_ != nullptr)
+			{
+				SDL_GameControllerClose(gamepad_);
+				gamepad_ = nullptr;
+			}
+
+			for (auto& axis_value : gamepad_last_axis_)
+			{
+				axis_value = 0;
+			}
+
+			// Ask the input layer to release the controller's now-frozen stick and
+			// trigger state; a disconnect mid-move must not leave the player walking
+			// or firing forever.
+			e.common.type = EventType::gamepad_removed;
+			e.common.timestamp = sdl_e.common.timestamp;
+			return true;
 		}
 #endif
 		if (handle_event(sdl_e, e))

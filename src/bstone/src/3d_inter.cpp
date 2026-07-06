@@ -61,6 +61,8 @@ bool Breifing(
 
 	vid_linc_briefing = false;
 	vid_linc_second_active = prev_second_active;
+	vid_linc_2nd_w = 0; // close the render gate so the briefing's target-base image
+	vid_linc_2nd_h = 0; // doesn't linger until the menu redraws its own second screen
 
 	return EscPressed;
 }
