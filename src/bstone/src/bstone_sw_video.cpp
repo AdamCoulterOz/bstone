@@ -140,6 +140,8 @@ private:
 	void calculate_dimensions();
 	void uninitialize_vga_buffer() noexcept;
 	void update_palette_from_vga(int offset, int count);
+	void upload_rgba8(sys::Texture& texture, const bstone::Rgba8* src, int width, int height);
+	void fade_fullscreen(int fade_ticks, bool fade_in);
 
 private:
 	sys::VideoMgr& video_mgr_;
@@ -760,6 +762,57 @@ try {
 	}
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
+void SwVideo::upload_rgba8(sys::Texture& texture, const bstone::Rgba8* src, int width, int height)
+{
+	const auto texture_lock = texture.make_lock();
+	const auto dst_pixels = texture_lock->get_pixels<std::uint32_t*>();
+	const auto dst_pitch = texture_lock->get_pitch() / 4;
+
+	// RGBA8 -> BGRA32 word (a<<24)|(r<<16)|(g<<8)|b, matching PixelFormat::b8g8r8a8.
+	for (auto y = 0; y < height; ++y)
+	{
+		auto dst_line = &dst_pixels[y * dst_pitch];
+		const auto src_line = &src[y * width];
+
+		for (auto x = 0; x < width; ++x)
+		{
+			const auto& p = src_line[x];
+
+			dst_line[x] =
+				(static_cast<std::uint32_t>(p.a_) << 24) |
+				(static_cast<std::uint32_t>(p.r_) << 16) |
+				(static_cast<std::uint32_t>(p.g_) << 8) |
+				static_cast<std::uint32_t>(p.b_);
+		}
+	}
+}
+
+void SwVideo::fade_fullscreen(int fade_ticks, bool fade_in)
+{
+	const auto steps = (fade_ticks > 0 && !gp_no_fade_in_or_out()) ? fade_ticks : 0;
+
+	fullscreen_texture_->set_blend_mode(sys::TextureBlendMode::blend);
+
+	// Per-step alpha ramp between black and the image (palette fades don't apply to
+	// the RGBA splash/bezel textures).
+	for (auto i = 0; i <= steps; ++i)
+	{
+		const auto ramp = (steps == 0) ? 255 : (255 * i) / steps;
+		const auto alpha = static_cast<std::uint8_t>(fade_in ? ramp : (255 - ramp));
+
+		fullscreen_texture_->set_alpha_mod(alpha);
+		renderer_->set_draw_color(opaque_black);
+		renderer_->clear();
+		fullscreen_texture_->copy(nullptr, nullptr);
+		renderer_->present();
+
+		if (steps != 0 && i != steps && !vid_has_vsync)
+		{
+			VL_WaitVBL(1);
+		}
+	}
+}
+
 void SwVideo::set_linc_layer(int layer, const bstone::Rgba8* src, int width, int height)
 try {
 	if (layer < 0 || layer >= vid_linc_layer_count ||
@@ -778,26 +831,7 @@ try {
 	texture = nullptr;
 	texture = renderer_->make_texture(texture_param);
 
-	const auto texture_lock = texture->make_lock();
-	const auto dst_pixels = texture_lock->get_pixels<std::uint32_t*>();
-	const auto dst_pitch = texture_lock->get_pitch() / 4;
-
-	for (auto y = 0; y < height; ++y)
-	{
-		auto dst_line = &dst_pixels[y * dst_pitch];
-		const auto src_line = &src[y * width];
-
-		for (auto x = 0; x < width; ++x)
-		{
-			const auto& p = src_line[x];
-
-			dst_line[x] =
-				(static_cast<std::uint32_t>(p.a_) << 24) |
-				(static_cast<std::uint32_t>(p.r_) << 16) |
-				(static_cast<std::uint32_t>(p.g_) << 8) |
-				static_cast<std::uint32_t>(p.b_);
-		}
-	}
+	upload_rgba8(*texture, src, width, height);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::present_fullscreen_rgba(
@@ -822,78 +856,20 @@ try {
 	fullscreen_texture_ = nullptr;
 	fullscreen_texture_ = renderer_->make_texture(texture_param);
 
-	// Upload, converting RGBA8 -> BGRA32 word (a<<24)|(r<<16)|(g<<8)|b.
-	{
-		const auto texture_lock = fullscreen_texture_->make_lock();
-		const auto dst_pixels = texture_lock->get_pixels<std::uint32_t*>();
-		const auto dst_pitch = texture_lock->get_pitch() / 4;
+	upload_rgba8(*fullscreen_texture_, src, width, height);
 
-		for (auto y = 0; y < height; ++y)
-		{
-			auto dst_line = &dst_pixels[y * dst_pitch];
-			const auto src_line = &src[y * width];
-
-			for (auto x = 0; x < width; ++x)
-			{
-				const auto& p = src_line[x];
-
-				dst_line[x] =
-					(static_cast<std::uint32_t>(p.a_) << 24) |
-					(static_cast<std::uint32_t>(p.r_) << 16) |
-					(static_cast<std::uint32_t>(p.g_) << 8) |
-					static_cast<std::uint32_t>(p.b_);
-			}
-		}
-	}
-
-	// Fade in from black via per-step alpha mod (palette fades don't apply here).
-	fullscreen_texture_->set_blend_mode(sys::TextureBlendMode::blend);
-
-	const auto steps = (fade_ticks > 0 && !gp_no_fade_in_or_out()) ? fade_ticks : 0;
-
-	for (auto i = 0; i <= steps; ++i)
-	{
-		const auto alpha = static_cast<std::uint8_t>(steps == 0 ? 255 : (255 * i) / steps);
-
-		fullscreen_texture_->set_alpha_mod(alpha);
-		renderer_->set_draw_color(opaque_black);
-		renderer_->clear();
-		fullscreen_texture_->copy(nullptr, nullptr);
-		renderer_->present();
-
-		if (steps != 0 && i != steps && !vid_has_vsync)
-		{
-			VL_WaitVBL(1);
-		}
-	}
+	// Fade in from black (0 -> full alpha).
+	fade_fullscreen(fade_ticks, true);
 
 	screenfaded = false;
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::fade_out_fullscreen(int fade_ticks)
 try {
-	const auto steps = (fade_ticks > 0 && !gp_no_fade_in_or_out()) ? fade_ticks : 0;
-
+	// Fade out to black (full -> 0 alpha).
 	if (fullscreen_texture_)
 	{
-		fullscreen_texture_->set_blend_mode(sys::TextureBlendMode::blend);
-
-		for (auto i = 0; i <= steps; ++i)
-		{
-			const auto alpha = static_cast<std::uint8_t>(
-				steps == 0 ? 0 : (255 - ((255 * i) / steps)));
-
-			fullscreen_texture_->set_alpha_mod(alpha);
-			renderer_->set_draw_color(opaque_black);
-			renderer_->clear();
-			fullscreen_texture_->copy(nullptr, nullptr);
-			renderer_->present();
-
-			if (steps != 0 && i != steps && !vid_has_vsync)
-			{
-				VL_WaitVBL(1);
-			}
-		}
+		fade_fullscreen(fade_ticks, false);
 	}
 
 	// Leave the screen cleared to black for the next page's fade-in.
