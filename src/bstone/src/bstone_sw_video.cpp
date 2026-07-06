@@ -442,6 +442,12 @@ try {
 			ui_2nd_texture_ = renderer_->make_texture(p);
 		}
 
+		// A routed pic larger than the 320x200 second-screen buffer/texture is only
+		// possible with modified data; clamp so the copy can't read past the buffer
+		// or write past the texture.
+		const auto linc_2nd_w = vid_linc_2nd_w < vga_ref_width ? vid_linc_2nd_w : vga_ref_width;
+		const auto linc_2nd_h = vid_linc_2nd_h < vga_ref_height ? vid_linc_2nd_h : vga_ref_height;
+
 		{
 			const auto lock = ui_2nd_texture_->make_lock();
 			const auto dst = lock->get_pixels<std::uint32_t*>();
@@ -451,12 +457,12 @@ try {
 			// the briefing target base actually blink (CycleColors cycles 0xF0-0xFE).
 			// Only the rust-remapped menu ramp (0x50-0x5F) is pinned to its true
 			// colours, so the images themselves are never rust-tinted.
-			for (auto y = 0; y < vid_linc_2nd_h; ++y)
+			for (auto y = 0; y < linc_2nd_h; ++y)
 			{
 				auto line = &dst[y * pitch];
 				const auto src = y * vga_ref_width;
 
-				for (auto x = 0; x < vid_linc_2nd_w; ++x)
+				for (auto x = 0; x < linc_2nd_w; ++x)
 				{
 					const auto idx = vid_linc_2nd_buffer_[src + x];
 					const auto color = (idx >= 0x50 && idx <= 0x5F)
@@ -468,7 +474,7 @@ try {
 		}
 
 		// Blow the image's bounds up to fill the whole second screen.
-		const auto src_rect = sys::Rectangle{0, 0, vid_linc_2nd_w, vid_linc_2nd_h};
+		const auto src_rect = sys::Rectangle{0, 0, linc_2nd_w, linc_2nd_h};
 		ui_2nd_texture_->set_blend_mode(sys::TextureBlendMode::none);
 		copy_texture_to_rendering_target(*ui_2nd_texture_, &src_rect, &ui_linc_2nd_dst_rect_);
 	}

@@ -23,6 +23,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 //      DEBUG - there are more globals
 //
 
+#include <array>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 #include "id_ca.h"
@@ -832,13 +834,40 @@ constexpr auto in_gc_axis_deadzone = 8000;
 constexpr auto in_gc_trigger_threshold = 16384;
 constexpr auto in_gc_nav_threshold = 16384;
 
-void in_gc_set_key(ScanCode scan_code, bool is_pressed)
+// Several controller buttons map to the same key (A and RB both -> Use; L3/R3/LB all
+// -> Run), so each key is reference-counted and released only when the last button
+// holding it lets go. Indexed by ScanCode; sized to match the Keyboard bitset.
+std::array<std::uint8_t, NumCodes> in_gc_key_refcount{};
+
+// The analogue triggers deliver level (not edge) events, so their on/off transition
+// is tracked here to keep the reference counting balanced.
+bool in_gc_left_trigger_down = false;
+bool in_gc_right_trigger_down = false;
+
+// update_last_scan is false for gameplay/modifier keys (movement, weapon, run,
+// attack) so they don't pollute LastScan, which the menus poll for typed input.
+void in_gc_set_key(ScanCode scan_code, bool is_pressed, bool update_last_scan = true)
 {
-	Keyboard[scan_code] = is_pressed;
+	auto& ref_count = in_gc_key_refcount[static_cast<std::size_t>(scan_code)];
 
 	if (is_pressed)
 	{
-		LastScan = scan_code;
+		++ref_count;
+		Keyboard[scan_code] = true;
+
+		if (update_last_scan)
+		{
+			LastScan = scan_code;
+		}
+	}
+	else if (ref_count > 0)
+	{
+		--ref_count;
+
+		if (ref_count == 0)
+		{
+			Keyboard[scan_code] = false;
+		}
 	}
 }
 
@@ -857,18 +886,18 @@ void in_handle_gamepad_button(const bstone::sys::GamepadButtonEvent& e)
 		case Gb::b: in_gc_set_key(ScanCode::sc_escape, is_pressed); break;              // back / open menu
 		case Gb::start: in_gc_set_key(ScanCode::sc_escape, is_pressed); break;          // pause menu (resume/save/load/options)
 		case Gb::back: in_gc_set_key(ScanCode::sc_tab, is_pressed); break;              // stats
-		case Gb::left_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;    // run (L3)
-		case Gb::right_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break;   // run (R3)
-		case Gb::left_shoulder: in_gc_set_key(ScanCode::sc_left_shift, is_pressed); break; // run (LB)
+		case Gb::left_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed, false); break;    // run (L3)
+		case Gb::right_stick: in_gc_set_key(ScanCode::sc_left_shift, is_pressed, false); break;   // run (R3)
+		case Gb::left_shoulder: in_gc_set_key(ScanCode::sc_left_shift, is_pressed, false); break; // run (LB)
 		case Gb::right_shoulder:
 			in_gc_set_key(ScanCode::sc_space, is_pressed); // use / confirm (same as A)
 			in_gc_set_key(ScanCode::sc_y, is_pressed);
 			break;
 
-		case Gb::dpad_left: in_gc_set_key(ScanCode::sc_q, is_pressed); in_gc_dpad_left = is_pressed; break;     // prev weapon
-		case Gb::dpad_right: in_gc_set_key(ScanCode::sc_e, is_pressed); in_gc_dpad_right = is_pressed; break;   // next weapon
-		case Gb::dpad_up: in_gc_set_key(ScanCode::sc_equals, is_pressed); in_gc_dpad_up = is_pressed; break;    // radar magnify
-		case Gb::dpad_down: in_gc_set_key(ScanCode::sc_minus, is_pressed); in_gc_dpad_down = is_pressed; break; // radar minify
+		case Gb::dpad_left: in_gc_set_key(ScanCode::sc_q, is_pressed, false); in_gc_dpad_left = is_pressed; break;     // prev weapon
+		case Gb::dpad_right: in_gc_set_key(ScanCode::sc_e, is_pressed, false); in_gc_dpad_right = is_pressed; break;   // next weapon
+		case Gb::dpad_up: in_gc_set_key(ScanCode::sc_equals, is_pressed, false); in_gc_dpad_up = is_pressed; break;    // radar magnify
+		case Gb::dpad_down: in_gc_set_key(ScanCode::sc_minus, is_pressed, false); in_gc_dpad_down = is_pressed; break; // radar minify
 
 		default: break; // x, guide: unbound for now
 	}
@@ -884,8 +913,26 @@ void in_handle_gamepad_axis(const bstone::sys::GamepadAxisEvent& e)
 		case Ga::left_y: in_gc_left_y = e.value; break;
 		case Ga::right_x: in_gc_right_x = e.value; break;
 
-		case Ga::right_trigger: in_gc_set_key(ScanCode::sc_control, e.value > in_gc_trigger_threshold); break; // attack
-		case Ga::left_trigger: in_gc_set_key(ScanCode::sc_alt, e.value > in_gc_trigger_threshold); break;      // strafe modifier
+		case Ga::right_trigger: // attack
+		{
+			const auto is_down = e.value > in_gc_trigger_threshold;
+			if (is_down != in_gc_right_trigger_down)
+			{
+				in_gc_right_trigger_down = is_down;
+				in_gc_set_key(ScanCode::sc_control, is_down, false);
+			}
+			break;
+		}
+		case Ga::left_trigger: // strafe modifier
+		{
+			const auto is_down = e.value > in_gc_trigger_threshold;
+			if (is_down != in_gc_left_trigger_down)
+			{
+				in_gc_left_trigger_down = is_down;
+				in_gc_set_key(ScanCode::sc_alt, is_down, false);
+			}
+			break;
+		}
 
 		default: break;
 	}
@@ -903,20 +950,20 @@ void in_reset_gamepad_state()
 	in_gc_dpad_down = false;
 	in_gc_dpad_left = false;
 	in_gc_dpad_right = false;
+	in_gc_left_trigger_down = false;
+	in_gc_right_trigger_down = false;
 
-	// Release every key a controller button or trigger can hold, so movement,
-	// attack, run and strafe never stick on after a disconnect.
-	in_gc_set_key(ScanCode::sc_space, false);
-	in_gc_set_key(ScanCode::sc_y, false);
-	in_gc_set_key(ScanCode::sc_escape, false);
-	in_gc_set_key(ScanCode::sc_tab, false);
-	in_gc_set_key(ScanCode::sc_left_shift, false);
-	in_gc_set_key(ScanCode::sc_control, false);
-	in_gc_set_key(ScanCode::sc_alt, false);
-	in_gc_set_key(ScanCode::sc_q, false);
-	in_gc_set_key(ScanCode::sc_e, false);
-	in_gc_set_key(ScanCode::sc_equals, false);
-	in_gc_set_key(ScanCode::sc_minus, false);
+	// Release every key any controller button or trigger currently holds, so
+	// movement, attack, run and strafe never stick on after a disconnect. Clear the
+	// reference count and the key together so a multi-button hold can't leave one set.
+	for (std::size_t i = 0; i < in_gc_key_refcount.size(); ++i)
+	{
+		if (in_gc_key_refcount[i] != 0)
+		{
+			in_gc_key_refcount[i] = 0;
+			Keyboard[static_cast<int>(i)] = false;
+		}
+	}
 }
 
 } // namespace
