@@ -9739,52 +9739,84 @@ void Quit()
 
 #if BSTONE_TVOS
 // Loads + decodes a bundled PNG (data_dir_ + rel_path) into rgba. Returns false
-// if the file is absent or fails to decode.
+// if the file is absent or fails to decode. The most recently decoded image is
+// cached (single entry) so the attract loop doesn't re-read and re-inflate the
+// same full-screen PNG (e.g. title.png) every cycle; one entry keeps the footprint
+// to a single image on the memory-constrained device.
 bool TvosLoadPng(const char* rel_path, int& width, int& height, bstone::Rgba8Buffer& rgba)
 {
-	const auto path = data_dir_ + rel_path;
+	static std::string cached_path;
+	static bool cached_ok = false;
+	static int cached_width = 0;
+	static int cached_height = 0;
+	static bstone::Rgba8Buffer cached_rgba;
 
-	std::FILE* file = std::fopen(path.c_str(), "rb");
-
-	if (file == nullptr)
+	// A hit requires a prior decode of this same path (cached_path is empty until
+	// the first call, and no real rel_path is empty).
+	if (!cached_path.empty() && cached_path == rel_path)
 	{
-		return false;
-	}
-
-	std::fseek(file, 0, SEEK_END);
-	const auto file_size = std::ftell(file);
-	std::fseek(file, 0, SEEK_SET);
-
-	if (file_size <= 0)
-	{
-		std::fclose(file);
-		return false;
-	}
-
-	auto bytes = std::vector<unsigned char>(static_cast<std::size_t>(file_size));
-	const auto read_count = std::fread(bytes.data(), 1, bytes.size(), file);
-	std::fclose(file);
-
-	if (read_count != bytes.size())
-	{
-		return false;
+		width = cached_width;
+		height = cached_height;
+		rgba = cached_rgba;
+		return cached_ok;
 	}
 
 	width = 0;
 	height = 0;
 	rgba = bstone::Rgba8Buffer{};
 
-	try
+	const auto decode_file = [&]() -> bool
 	{
-		auto decoder = bstone::make_image_decoder(bstone::ImageDecoderType::png);
-		decoder->decode(bytes.data(), static_cast<int>(bytes.size()), width, height, rgba);
-	}
-	catch (...)
-	{
-		return false;
-	}
+		const auto path = data_dir_ + rel_path;
 
-	return width > 0 && height > 0 && !rgba.empty();
+		std::FILE* file = std::fopen(path.c_str(), "rb");
+
+		if (file == nullptr)
+		{
+			return false;
+		}
+
+		std::fseek(file, 0, SEEK_END);
+		const auto file_size = std::ftell(file);
+		std::fseek(file, 0, SEEK_SET);
+
+		if (file_size <= 0)
+		{
+			std::fclose(file);
+			return false;
+		}
+
+		auto bytes = std::vector<unsigned char>(static_cast<std::size_t>(file_size));
+		const auto read_count = std::fread(bytes.data(), 1, bytes.size(), file);
+		std::fclose(file);
+
+		if (read_count != bytes.size())
+		{
+			return false;
+		}
+
+		try
+		{
+			auto decoder = bstone::make_image_decoder(bstone::ImageDecoderType::png);
+			decoder->decode(bytes.data(), static_cast<int>(bytes.size()), width, height, rgba);
+		}
+		catch (...)
+		{
+			return false;
+		}
+
+		return width > 0 && height > 0 && !rgba.empty();
+	};
+
+	const auto ok = decode_file();
+
+	cached_path = rel_path;
+	cached_ok = ok;
+	cached_width = ok ? width : 0;
+	cached_height = ok ? height : 0;
+	cached_rgba = ok ? rgba : bstone::Rgba8Buffer{};
+
+	return ok;
 }
 
 // Loads a bundled custom 16:9 splash PNG and presents it full-screen with a
