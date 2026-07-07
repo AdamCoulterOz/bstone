@@ -9857,8 +9857,7 @@ void TvosEnsureLincBackground()
 
 	static const LincLayerFile linc_files[] =
 	{
-		{"linc-closed.png", vid_linc_closed},
-		{"linc-open.png", vid_linc_open},
+		{"linc-clean.png", vid_linc_bezel},
 		{"linc-light-red.png", vid_linc_light_red},
 		{"linc-light-green.png", vid_linc_light_green},
 		{"linc-light-amber.png", vid_linc_light_amber},

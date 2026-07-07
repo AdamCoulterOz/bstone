@@ -365,12 +365,13 @@ try {
 	renderer_->set_draw_color(opaque_black);
 	renderer_->clear();
 
-	// tvOS: draw the LINC bezel underneath the UI — the open (second-screen) skin
-	// during a mission briefing, the closed skin otherwise.
+	// tvOS: draw the single static LINC bezel underneath the UI. Both screens (the
+	// main text screen + the smaller second screen) are part of the bezel art; the
+	// second screen shows the new-mission image when there is one, else its own black.
 	//
 	if (vid_tvos_linc)
 	{
-		auto& bezel = linc_layers_[vid_linc_second_active ? vid_linc_open : vid_linc_closed];
+		auto& bezel = linc_layers_[vid_linc_bezel];
 
 		if (bezel != nullptr)
 		{
