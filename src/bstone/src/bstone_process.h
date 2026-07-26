@@ -9,30 +9,16 @@ SPDX-License-Identifier: MIT
 #ifndef BSTONE_PROCESS_INCLUDED
 #define BSTONE_PROCESS_INCLUDED
 
-#include <cstdint>
-
 namespace bstone {
 namespace process {
 
-struct CreateAndWaitForExitParam
-{
-	std::intptr_t argc;
-	const char** argv;
-
-	const char* working_directory; // (optional)
-};
-
-struct CreateAndWaitForExitResult
-{
-	bool has_exit_code;
-	std::int64_t exit_code;
-};
-
-// ==========================================================================
-
-CreateAndWaitForExitResult create_and_wait_for_exit(const CreateAndWaitForExitParam& param);
-
-void open_file_or_url(const char* url);
+// Opens a file or URL in the system-provided default application (a browser for
+// http(s), a viewer/editor for a local file, a file manager for a directory, ...).
+//
+// Best-effort and sandbox-safe: it routes through SDL_OpenURL, so bstone itself
+// never spawns a child process. A local filesystem path is accepted and turned into
+// a file:// URL; anything already carrying a scheme is passed through unchanged.
+void open_file_or_url(const char* file_or_url);
 
 } // namespace process
 } // namespace bstone

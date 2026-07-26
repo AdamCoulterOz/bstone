@@ -104,7 +104,7 @@ Checkboxes double as a tracking checklist.
 - [x] Bundle produced by CMake's Xcode generator + a configured [`Info.plist.in`](src/bstone/src/resources/tvos/Info.plist.in) (no separate hand-authored Xcode project needed). Host codegen `tools` skipped on tvOS ([`src/CMakeLists.txt`](src/CMakeLists.txt)).
 - [x] Vendored SDL 2.32.10 builds clean for tvOS (UIKit/CoreAudio/MFi/Metal) — the `project(SDL2 C)` language decl was a non-issue; SDL enables Objective-C itself. Frameworks (GameController, Metal, UIKit, CoreAudio, AVFoundation, CoreHaptics) link automatically.
 - [x] `BSTONE_VULKAN_COMPILE_SHADERS` left OFF — default build runs no host `bin2c`.
-- [x] tvOS-unavailable subprocess spawner (`fork`/`execve`/`execle`) in [`bstone_process_posix.cpp`](src/bstone/src/bstone_process_posix.cpp) stubbed out on tvOS (was the only compile failure). *(Pulled forward from Phase 2.)*
+- [x] The subprocess spawner (`fork`/`exec*`) that failed to compile on tvOS is gone entirely: launching now routes through `SDL_OpenURL` in [`bstone_process.cpp`](src/bstone/src/bstone_process.cpp) — one sandbox-safe cross-platform path, no `fork` on any OS. *(Pulled forward from Phase 2.)*
 
 **Exit criteria:** App installs and runs to a paired Apple TV from Xcode; reaches `main`/`freed_main`; clears to a blank UIKit/Metal window without crashing. — **Build side done; on-device launch pending the user's sign+Run.**
 
@@ -130,7 +130,7 @@ Checkboxes double as a tracking checklist.
 - [x] `InitDestPath()` (`src/bstone/src/3d_main.cpp`) points `data_dir_` at the app bundle on tvOS via the new `bstone::sys::SpecialPath::get_base_path()` (wraps `SDL_GetBasePath`), set before `find_contents()` runs.
 - [x] Game data bundled by CMake: `data/*.BS1|*.BS6|*.VSI` → app Resources, i.e. the bundle root where `SDL_GetBasePath` resolves (confirmed: the 10 `.BS1` files sit at `bstone.app/`). `./fetch-data.sh` pulls the free AOG v3.0 shareware set, which passes the engine's built-in SHA1 manifest.
 - [~] Left `get_profile_dir()` on `SDL_GetPrefPath` (→ `Library/Caches`) — writable and working; it's purgeable, but durability (Documents/iCloud) isn't worth it for a sideload experiment. Revisit only if vanishing saves become annoying.
-- [x] Stub the subprocess spawner (`src/bstone/src/bstone_process_posix.cpp`) on tvOS — `fork`/`exec*` are unavailable; `create_and_wait_for_exit`/`open_file_or_url` are now inert on tvOS. *(`--extract_*` options are moot without a CLI; revisit if ever needed.)*
+- [x] Replaced the per-OS fork/exec subprocess code with a single sandbox-safe [`bstone_process.cpp`](src/bstone/src/bstone_process.cpp): `open_file_or_url` routes through `SDL_OpenURL` (which just returns an error on tvOS, where opening a local file isn't supported), and the unused `create_and_wait_for_exit` spawn primitive was removed outright. *(`--extract_*` options are moot without a CLI; revisit if ever needed.)*
 
 **Exit criteria:** A level loads (driven by keyboard/remote scancodes for now); a save written in one session is readable after relaunch.
 

@@ -44,7 +44,8 @@ if (NOT BSTONE_INTERNAL_SDL2)
 		set(BSTONE_SDL_COMPONENTS "${BSTONE_SDL_COMPONENTS};static")
 	endif ()
 
-	find_package(SDL2W 2.0.4 REQUIRED COMPONENTS ${BSTONE_SDL_COMPONENTS})
+	# 2.0.14 for SDL_OpenURL (bstone_process.cpp opens files/URLs through it).
+	find_package(SDL2W 2.0.14 REQUIRED COMPONENTS ${BSTONE_SDL_COMPONENTS})
 endif ()
 
 # Threads
@@ -627,8 +628,7 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_zstring_view.cpp
 	src/bstone_zstring_view.h
 	src/bstone_process.h
-	src/bstone_process_posix.cpp
-	src/bstone_process_win32.cpp
+	src/bstone_process.cpp
 )
 
 target_sources(bstone PRIVATE ${BSTONE_LIB_MISC_SOURCES})

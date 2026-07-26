@@ -433,7 +433,7 @@ Minimum requirements:
   * [Clang 3.4](http://clang.llvm.org)
   * [MSVC (VS 2017 15.0)](http://visualstudio.microsoft.com)
 * [CMake 3.4.0](http://cmake.org/)
-* [SDL v2.0.4](http://libsdl.org/)  
+* [SDL v2.0.14](http://libsdl.org/)  
 
 CMake variables:
 * `CMAKE_BUILD_TYPE`  
