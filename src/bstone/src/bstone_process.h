@@ -15,9 +15,9 @@ namespace process {
 // Opens a file or URL in the system-provided default application (a browser for
 // http(s), a viewer/editor for a local file, a file manager for a directory, ...).
 //
-// Best-effort and sandbox-safe: it routes through SDL_OpenURL, so bstone itself
-// never spawns a child process. A local filesystem path is accepted and turned into
-// a file:// URL; anything already carrying a scheme is passed through unchanged.
+// Best-effort and sandbox-safe: it delegates to the sys layer's open-URL service,
+// so bstone itself never spawns a child process. A local filesystem path is accepted
+// and turned into a file:// URL; anything already carrying a scheme is passed through.
 void open_file_or_url(const char* file_or_url);
 
 } // namespace process

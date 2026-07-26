@@ -94,6 +94,8 @@ private:
 	EventMgr& do_get_event_mgr() override;
 	VideoMgr& do_get_video_mgr() override;
 
+	void do_open_url(const char* url) override;
+
 private:
 	static MemoryResource& get_memory_resource();
 
@@ -165,6 +167,12 @@ EventMgr& Sdl2SystemMgr::do_get_event_mgr()
 VideoMgr& Sdl2SystemMgr::do_get_video_mgr()
 {
 	return *video_mgr_;
+}
+
+void Sdl2SystemMgr::do_open_url(const char* url)
+{
+	// Best-effort: SDL_OpenURL returns non-zero where opening isn't supported.
+	static_cast<void>(SDL_OpenURL(url));
 }
 
 MemoryResource& Sdl2SystemMgr::get_memory_resource()

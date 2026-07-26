@@ -30,11 +30,16 @@ public:
 	EventMgr& get_event_mgr();
 	VideoMgr& get_video_mgr();
 
+	// Opens a URL/URI in the system-provided default application.
+	void open_url(const char* url);
+
 private:
 	virtual Logger& do_get_logger() = 0;
 	virtual AudioMgr& do_get_audio_mgr() = 0;
 	virtual EventMgr& do_get_event_mgr() = 0;
 	virtual VideoMgr& do_get_video_mgr() = 0;
+
+	virtual void do_open_url(const char* url) = 0;
 };
 
 // ==========================================================================

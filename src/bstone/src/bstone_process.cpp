@@ -11,7 +11,7 @@ SPDX-License-Identifier: MIT
 #include <cstdio>
 #include <string>
 
-#include "SDL.h"
+#include "bstone_globals.h"
 
 namespace bstone {
 namespace process {
@@ -38,10 +38,10 @@ bool has_url_scheme(const char* text) noexcept
 	return false;
 }
 
-// Turns a local filesystem path into the "file:///full/path" URL that SDL_OpenURL
-// documents for local files: reserved bytes are percent-encoded (e.g. the space in
-// "Application Support"), Windows back-slashes become forward slashes, and a drive
-// path ("C:\...") gains the leading slash of "file:///C:/...".
+// Turns a local filesystem path into the "file:///full/path" URL that the system
+// "open URL" service wants for local files: reserved bytes are percent-encoded
+// (e.g. the space in "Application Support"), Windows back-slashes become forward
+// slashes, and a drive path ("C:\...") gains the leading slash of "file:///C:/...".
 //
 // The path is expected to be absolute (the only caller passes an absolute
 // profile-dir path); a relative path would be rooted at "/", not the CWD.
@@ -98,15 +98,22 @@ void open_file_or_url(const char* file_or_url)
 		return;
 	}
 
-	// Best-effort: SDL_OpenURL returns non-zero where opening isn't supported (e.g.
-	// a local file on tvOS); there is nothing useful to do about it from here.
+	auto& system_mgr = globals::sys_system_mgr;
+
+	if (system_mgr == nullptr)
+	{
+		return;
+	}
+
+	// The actual "open" lives in the sys backend; here we only turn a local path
+	// into the file:// URL that service expects.
 	if (has_url_scheme(file_or_url))
 	{
-		static_cast<void>(SDL_OpenURL(file_or_url));
+		system_mgr->open_url(file_or_url);
 	}
 	else
 	{
-		static_cast<void>(SDL_OpenURL(path_to_file_url(file_or_url).c_str()));
+		system_mgr->open_url(path_to_file_url(file_or_url).c_str());
 	}
 }
 

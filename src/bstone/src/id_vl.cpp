@@ -1372,7 +1372,7 @@ try {
 
 #if BSTONE_TVOS
 	// tvOS has no desktop OpenGL and no bundled Vulkan loader; always use the
-	// software renderer, which presents through SDL's Metal-backed SDL_Renderer.
+	// software renderer, which presents through the system video layer (Metal-backed).
 	const auto is_sw = true;
 #else
 	const auto is_sw = (vid_cfg_get_renderer_type() == bstone::RendererType::software);

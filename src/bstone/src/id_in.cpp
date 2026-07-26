@@ -552,15 +552,7 @@ void in_handle_keyboard(const bstone::sys::KeyboardEvent& e)
 
 	switch (key)
 	{
-// TODO
-#if 0
-#ifndef __vita__
-		// (vita) TranslateControllerEvent() does not currently affect the output of SDL_GetModState()
-		case ScanCode::sc_alt: is_pressed = ((key_mod & KMOD_ALT) != 0); break;
-#endif
-#else
 		case ScanCode::sc_alt: is_pressed = in_is_lalt_pressed || in_is_ralt_pressed; break;
-#endif
 		case ScanCode::sc_control: is_pressed = in_is_lctrl_pressed || in_is_rctrl_pressed; break;
 		default: is_pressed = e.is_pressed; break;
 	}
@@ -976,24 +968,6 @@ void in_handle_events()
 	{
 		switch (e.common.type)
 		{
-// TODO
-#if 0
-#ifdef __vita__
-			case SDL_JOYBUTTONDOWN:
-			case SDL_JOYBUTTONUP:
-				TranslateControllerEvent(&e);
-				break;
-
-			case SDL_FINGERDOWN:
-			case SDL_FINGERUP:
-				TranslateTouchEvent(&e);
-				break;
-
-			case SDL_JOYAXISMOTION:
-				TranslateAnalogEvent(&e);
-				break;
-#endif
-#endif
 			case bstone::sys::EventType::keyboard:
 				in_handle_keyboard(e.keyboard);
 				break;
@@ -1394,20 +1368,6 @@ void IN_Startup()
 
 	INL_StartKbd();
 	MousePresent = INL_StartMouse();
-
-// TODO
-#if 0
-#ifdef __vita__
-	// Vita joysticks are treated separately from other kinds of joystick
-	if (!SDL_WasInit(SDL_INIT_JOYSTICK))
-	{
-		SDL_Init(SDL_INIT_JOYSTICK);
-	}
-
-	SDL_JoystickOpen(0);
-	SDL_JoystickEventState(SDL_ENABLE);
-#endif
-#endif
 
 	bstone::globals::sys_event_mgr = &bstone::globals::sys_system_mgr->get_event_mgr();
 

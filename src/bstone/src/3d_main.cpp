@@ -5,7 +5,8 @@ Copyright (c) 2013-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-#define SDL_MAIN_HANDLED
+// The game's main() lives here; the OS entry glue (the platform bootstrap and the
+// Windows UTF-8 argv shim) is contained in bstone_entry_point.cpp.
 
 #include <cmath>
 #include <cstdint>
@@ -10390,8 +10391,8 @@ void InitDestPath()
 	if (requested_data_dir.is_empty())
 	{
 #if BSTONE_TVOS
-		// tvOS: the game data ships read-only inside the app bundle.
-		// SDL_GetBasePath() resolves to the bundle's resource directory.
+		// tvOS: the game data ships read-only inside the app bundle. The system
+		// base path (bstone::sys::SpecialPath::get_base_path) resolves to it.
 		constexpr auto base_buffer_size = 4096;
 		std::string base_dir;
 		base_dir.resize(base_buffer_size);

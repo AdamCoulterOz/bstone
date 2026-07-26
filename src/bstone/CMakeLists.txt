@@ -44,7 +44,7 @@ if (NOT BSTONE_INTERNAL_SDL2)
 		set(BSTONE_SDL_COMPONENTS "${BSTONE_SDL_COMPONENTS};static")
 	endif ()
 
-	# 2.0.14 for SDL_OpenURL (bstone_process.cpp opens files/URLs through it).
+	# 2.0.14 for SDL_OpenURL (the sys layer's open_url is built on it).
 	find_package(SDL2W 2.0.14 REQUIRED COMPONENTS ${BSTONE_SDL_COMPONENTS})
 endif ()
 

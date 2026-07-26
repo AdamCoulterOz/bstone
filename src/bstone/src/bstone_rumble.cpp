@@ -16,7 +16,7 @@ namespace bstone {
 namespace rumble {
 namespace {
 
-constexpr int k_max = 65535;     // SDL rumble per-motor max
+constexpr int k_max = 65535;     // sys-layer rumble per-motor max
 constexpr int k_tic_rate = 70;   // game tics per second
 
 // Continuous channels (mixed additively each frame; refreshed by the *_continuous
@@ -173,7 +173,7 @@ void update(int tics)
 	else
 	{
 		// Re-issued every frame; 200ms covers the gap so continuous effects never
-		// lapse. SDL's Core Haptics backend updates the live intensity smoothly.
+		// lapse. The platform's haptics backend updates the live intensity smoothly.
 		mgr->set_rumble(static_cast<std::uint16_t>(low), static_cast<std::uint16_t>(high), 200);
 		g_idle = false;
 	}

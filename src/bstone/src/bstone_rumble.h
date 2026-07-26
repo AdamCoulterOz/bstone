@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 // Game code calls the semantic event functions below; the intensity/envelope of
 // each lives in bstone_rumble.cpp (one place to tune the "feel"). A per-frame
 // update() mixes active one-shots + continuous channels and drives the controller
-// through the sys event manager (SDL_GameControllerRumble). It is a harmless no-op
+// through the sys event manager's rumble support. It is a harmless no-op
 // when no haptic controller is open (e.g. desktop, or no gamepad on tvOS).
 //
 

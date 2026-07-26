@@ -35,5 +35,10 @@ VideoMgr& SystemMgr::get_video_mgr()
 	return do_get_video_mgr();
 }
 
+void SystemMgr::open_url(const char* url)
+{
+	do_open_url(url);
+}
+
 } // namespace sys
 } // namespace bstone
